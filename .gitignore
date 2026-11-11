@@ -3,4 +3,4 @@ __pycache__/
 *.pyc
 .env
 *.db
-node_modules/
+node_modules/gateway/rules/dynamic.json

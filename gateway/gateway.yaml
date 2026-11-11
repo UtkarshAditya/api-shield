@@ -1,0 +1,43 @@
+# APIShield gateway config. Any APISHIELD_* environment variable overrides this file
+# (see README.md). Relative paths are resolved from this file's folder.
+
+upstream_url: http://127.0.0.1:8001     # the API being protected (demo_api)
+redis_url: redis://127.0.0.1:6379/0     # rate limits + traffic event stream
+mode: enforce                           # monitor = log only, enforce = block
+fail_open: true                         # if a check itself breaks, let traffic through
+max_body_bytes: 1048576
+
+openapi_spec: ../demo_api/openapi.json  # remove to fetch <upstream>/openapi.json at startup
+rules_dir: rules
+rules_reload_seconds: 2                 # hot reload: poll the rules folder this often
+
+event_stream: apishield:traffic
+
+auth:
+  enforce_spec_auth: true               # 401 on routes the spec marks as protected
+  api_key_header: x-api-key
+  api_keys: []                          # e.g. - {name: demo-client, key: "change-me"}
+  jwt:
+    # DEMO ONLY: this is demo_api's hardcoded secret. Use APISHIELD_JWT_SECRET for real.
+    secret: dev-secret
+    algorithms: [HS256]
+    # issuer: https://auth.example.com
+    # audience: my-api
+
+# Token buckets: `limit` requests per `per` seconds, bursts up to `burst`.
+# scope: caller (API key / JWT subject / IP when anonymous) | ip | endpoint (caller + route)
+rate_limits:
+  - {id: per-caller, scope: caller, limit: 1200, per: 60, burst: 200}
+  - {id: per-ip, scope: ip, limit: 3000, per: 60, burst: 500}
+  - id: login
+    scope: endpoint
+    match: {method: POST, path: /login}
+    limit: 5
+    per: 60
+
+inspector:
+  mode: mask                            # mask | alert | off
+  detectors:
+    secret.jwt: alert                   # report tokens in responses, but do not rewrite them
+  allow:
+    - {method: POST, path: /login, detectors: [secret.jwt]}   # login is meant to return a token
