@@ -1,0 +1,47 @@
+# Built-in protection rules. Edit and save: the gateway reloads within ~2 seconds.
+#
+# Rule shape (section 4 of the architecture plan, plus the dashboard's fields):
+#   id, name, enabled, match{path, method, ip, header, signature, condition},
+#   action (allow | log | block | throttle | challenge), source, expires_at
+# Every field inside `match` must hold. Lower `priority` runs first (default 100).
+# Rules pushed at runtime are stored next to this file in dynamic.json.
+
+rules:
+  - id: builtin-ip-denylist
+    name: IP deny list
+    match:
+      ip: [203.0.113.0/24]        # TEST-NET-3 placeholder: replace with real addresses
+    action: block
+    source: builtin
+    priority: 10
+
+  - id: builtin-bad-user-agent
+    name: Known attack tools (User-Agent)
+    match: {signature: bad_user_agent}
+    action: block
+    source: builtin
+    priority: 20
+
+  - id: builtin-sqli
+    name: SQL injection
+    match: {signature: sqli}
+    action: block
+    source: builtin
+
+  - id: builtin-nosqli
+    name: NoSQL injection
+    match: {signature: nosqli}
+    action: block
+    source: builtin
+
+  - id: builtin-xss
+    name: Cross-site scripting
+    match: {signature: xss}
+    action: block
+    source: builtin
+
+  - id: builtin-path-traversal
+    name: Path traversal
+    match: {signature: path_traversal}
+    action: block
+    source: builtin

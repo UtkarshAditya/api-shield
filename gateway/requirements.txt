@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+httpx
+redis
+pyyaml
+PyJWT
+jsonschema>=4
+pytest
+fakeredis[lua]
