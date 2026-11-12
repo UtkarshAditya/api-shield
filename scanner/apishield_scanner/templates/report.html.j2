@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>APIShield Scan Report</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 2rem; background: #0f1115; color: #e6e6e6; }
+  h1 { margin-bottom: 0; }
+  .meta { color: #999; margin-bottom: 1.5rem; }
+  .score { font-size: 2rem; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th, td { text-align: left; padding: 0.6rem; border-bottom: 1px solid #333; }
+  .critical { color: #ff4d4d; font-weight: bold; }
+  .high { color: #ff9900; font-weight: bold; }
+  .medium { color: #ffd633; }
+  .low { color: #8bc34a; }
+  .evidence { font-family: monospace; font-size: 0.85rem; color: #aaa; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <h1>APIShield Scan Report</h1>
+  <div class="meta">Target: {{ report.target }} &middot; Generated: {{ report.generated_at }}</div>
+  <div class="score">API Risk Score: {{ report.api_risk_score }} / 10</div>
+
+  <table>
+    <tr><th>Severity</th><th>Risk</th><th>Finding</th><th>Endpoint</th><th>Fix</th></tr>
+    {% for f in report.findings %}
+    <tr>
+      <td class="{{ f.risk_band }}">{{ f.risk_band|upper }}</td>
+      <td>{{ f.risk_score }}</td>
+      <td>{{ f.title }}<br><span class="evidence">{{ f.owasp_cat }}</span></td>
+      <td>{{ f.method }} {{ f.endpoint }}</td>
+      <td>{{ f.fix }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</body>
+</html>
