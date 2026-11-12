@@ -1,0 +1,30 @@
+{
+  "endpoint": "/search",
+  "evidence": {
+    "request": "GET /search with payload ' OR '1'='1",
+    "response": "200 · result count changed · {\"results\":[{\"email\":\"••••\",\"ip\":\"••••\"}]}"
+  },
+  "fix": "Use parameterized queries.",
+  "id": "fd_000000000000",
+  "method": "GET",
+  "owasp_cat": "API8:2023 Security Misconfiguration (Injection)",
+  "risk_score": 8.0,
+  "scan_id": "sc_000000000000",
+  "severity": "high",
+  "status": "mitigated",
+  "suggested_rule": {
+    "action": "block",
+    "enabled": true,
+    "hits_24h": 0,
+    "id": "rule-block-sqli-q",
+    "match": {
+      "method": "GET",
+      "path": "/search",
+      "signature": "sqli"
+    },
+    "name": "rule block sqli q",
+    "priority": 100,
+    "source": "scanner"
+  },
+  "title": "Possible SQL injection via 'q'"
+}

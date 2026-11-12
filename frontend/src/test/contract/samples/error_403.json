@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "forbidden",
+    "message": "Only admins can switch between monitor and enforce."
+  },
+  "request_id": "00000000000000000000000000000000"
+}

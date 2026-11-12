@@ -1,0 +1,5 @@
+{
+  "action": "block",
+  "explanation": "The request matches every condition of this rule, so the gateway would block it with 403.",
+  "matched": true
+}

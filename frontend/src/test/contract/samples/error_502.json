@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "gateway_unreachable",
+    "message": "The gateway is not reachable, so nothing was changed. Check that it is running."
+  },
+  "request_id": "00000000000000000000000000000000"
+}

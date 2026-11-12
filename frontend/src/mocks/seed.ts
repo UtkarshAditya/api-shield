@@ -3,7 +3,7 @@
  * a vulnerable demo shop API, scanner findings on /login and /search,
  * a warmed-up learner, and a ranked alert burst.
  */
-import type { Alert, Finding, LearningStatus, Me, Rule, Settings, Upstream } from "@/api/schemas";
+import type { Alert, AuditEntry, EndpointInventoryItem, Finding, LearningStatus, Me, Rule, Scan, Settings, Upstream } from "@/api/schemas";
 
 /** Small seeded PRNG (mulberry32) so the demo looks identical on every load. */
 export function rng(seed: number) {
@@ -59,10 +59,10 @@ export const endpointProfiles: Record<string, EndpointProfile[]> = {
 /** Requests per minute baseline per upstream. */
 export const baseRpm: Record<string, number> = { up_shop: 1450, up_pay: 380 };
 
-/** Caller IDs are API-key fingerprints, already masked by the gateway. */
+/** Caller IDs as the Admin API returns them: `key_` is the gateway's key hash, `ip_`/`user_` are pseudonymized. */
 export const callers: Record<string, string[]> = {
-  up_shop: ["key_4c1e••••", "key_9f3a••••", "key_a07b••••", "key_d2e8••••", "ip:203.0.113.•", "key_77c0••••"],
-  up_pay: ["key_pay1••••", "key_pay7••••", "key_b33f••••"],
+  up_shop: ["key_4c1e7b20", "key_9f3a1c2e", "key_a07b93d4", "key_d2e85f01", "ip_5be03a71", "key_77c0e6aa"],
+  up_pay: ["key_e1a40c55", "key_7d02bb19", "key_b33f6a80"],
 };
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
@@ -72,7 +72,7 @@ export function seedAlerts(): Record<string, Alert[]> {
     {
       id: "al_1001",
       ts: minutesAgo(2),
-      caller: "key_9f3a••••",
+      caller: "key_9f3a1c2e",
       endpoint: "GET /search",
       score: 0.97,
       rank: 1,
@@ -86,11 +86,12 @@ export function seedAlerts(): Record<string, Alert[]> {
         "This caller is hitting /search 14× faster than usual with a query shape we've never seen, and a third of the responses are server errors. That pattern usually means automated injection probing.",
       status: "new",
       group_id: "grp_9f3a",
+      timeline: Array.from({ length: 12 }, (_, i) => ({ ts: minutesAgo(12 - i), count: i < 8 ? 25 + (i % 3) : 380 + i * 8 })),
     },
     {
       id: "al_1002",
       ts: minutesAgo(4),
-      caller: "ip:203.0.113.•",
+      caller: "ip_5be03a71",
       endpoint: "POST /login",
       score: 0.91,
       rank: 2,
@@ -107,7 +108,7 @@ export function seedAlerts(): Record<string, Alert[]> {
     {
       id: "al_1003",
       ts: minutesAgo(9),
-      caller: "key_a07b••••",
+      caller: "key_a07b93d4",
       endpoint: "GET /orders/{id}",
       score: 0.78,
       rank: 3,
@@ -124,7 +125,7 @@ export function seedAlerts(): Record<string, Alert[]> {
     {
       id: "al_1004",
       ts: minutesAgo(22),
-      caller: "key_d2e8••••",
+      caller: "key_d2e85f01",
       endpoint: "POST /cart/items",
       score: 0.52,
       rank: 4,
@@ -137,7 +138,7 @@ export function seedAlerts(): Record<string, Alert[]> {
     {
       id: "al_1005",
       ts: minutesAgo(41),
-      caller: "key_9f3a••••",
+      caller: "key_9f3a1c2e",
       endpoint: "GET /users/{id}",
       score: 0.44,
       rank: 5,
@@ -150,7 +151,7 @@ export function seedAlerts(): Record<string, Alert[]> {
     {
       id: "al_1006",
       ts: minutesAgo(75),
-      caller: "key_77c0••••",
+      caller: "key_77c0e6aa",
       endpoint: "GET /products",
       score: 0.21,
       rank: 6,
@@ -165,7 +166,7 @@ export function seedAlerts(): Record<string, Alert[]> {
     {
       id: "al_2001",
       ts: minutesAgo(18),
-      caller: "key_b33f••••",
+      caller: "key_b33f6a80",
       endpoint: "POST /refunds",
       score: 0.63,
       rank: 1,
@@ -215,7 +216,7 @@ export function seedFindings(): Record<string, Finding[]> {
         risk_score: 9.1,
         evidence: { request: "GET /search?q=' OR 1=1 --", response: "500 · syntax error near ••••" },
         fix: "Use parameterized queries for the search handler.",
-        suggested_rule: rule({ id: "r_sugg_sqli", name: "Block SQLi on /search", match: { path: "/search", method: "GET", signature: "sqli" }, action: "block", source: "scanner" }),
+        suggested_rule: rule({ id: "rule-block-sqli-q", name: "rule block sqli q", match: { path: "/search", method: "GET", signature: "sqli" }, action: "block", source: "scanner", priority: 100 }),
         status: "open",
       },
       {
@@ -229,7 +230,15 @@ export function seedFindings(): Record<string, Finding[]> {
         risk_score: 8.2,
         evidence: { request: "POST /login ×500 in 10s", response: "200/401, never 429" },
         fix: "Add a per-IP and per-username rate limit.",
-        suggested_rule: rule({ id: "r_sugg_rl", name: "Throttle /login", match: { path: "/login", method: "POST", condition: "rate > 10/min per ip" }, action: "throttle", source: "scanner" }),
+        suggested_rule: rule({
+          id: "rule-ratelimit-login",
+          name: "rule ratelimit login",
+          match: { path: "/login", method: "POST" },
+          action: "throttle",
+          throttle: { limit: 5, per: 60 },
+          source: "scanner",
+          priority: 100,
+        }),
         status: "open",
       },
       {
@@ -248,4 +257,114 @@ export function seedFindings(): Record<string, Finding[]> {
     ],
     up_pay: [],
   };
+}
+
+export function seedRules(): Record<string, Rule[]> {
+  return {
+    up_shop: [
+      {
+        id: "builtin-sqli",
+        name: "SQL injection signatures",
+        enabled: true,
+        match: { signature: "sqli" },
+        action: "block",
+        source: "builtin",
+        priority: 10,
+        hits_24h: 214,
+      },
+      {
+        id: "block-admin-writes",
+        name: "Block writes to /admin",
+        enabled: true,
+        match: { path: "/admin/*", method: ["POST", "PUT", "DELETE"] },
+        action: "block",
+        source: "analyst",
+        priority: 50,
+        hits_24h: 3,
+        created_at: minutesAgo(60 * 26),
+        created_by: "admin@demo.local",
+      },
+      {
+        id: "log-scanner-agents",
+        name: "Log known scanner user agents",
+        enabled: true,
+        match: { signature: "bad_user_agent", ip: ["203.0.113.0/24", "198.51.100.0/24"] },
+        action: "log",
+        source: "analyst",
+        priority: 100,
+        hits_24h: 41,
+        created_at: minutesAgo(60 * 50),
+        created_by: "analyst@demo.local",
+      },
+    ],
+    up_pay: [],
+  };
+}
+
+export function seedScans(): Record<string, Scan[]> {
+  return {
+    up_shop: [
+      {
+        id: "sc_001",
+        upstream_id: "up_shop",
+        status: "done",
+        progress: 1,
+        started_at: minutesAgo(95),
+        finished_at: minutesAgo(94),
+        counts: { critical: 1, high: 2, medium: 0, low: 0, info: 0 },
+        api_risk_score: 8.2,
+      },
+    ],
+    up_pay: [],
+  };
+}
+
+export function seedInventory(): Record<string, EndpointInventoryItem[]> {
+  const row = (method: string, path: string, risk: number, extra: Partial<EndpointInventoryItem> = {}): EndpointInventoryItem => ({
+    method,
+    path,
+    source: "both",
+    shadow: false,
+    auth_required: false,
+    rate_limited: false,
+    risk_score: risk,
+    requests_24h: 0,
+    ...extra,
+  });
+  return {
+    up_shop: [
+      row("GET", "/products", 2.1, { requests_24h: 64210 }),
+      row("GET", "/search", 9.1, { requests_24h: 45560 }),
+      row("POST", "/login", 8.2, { requests_24h: 28990 }),
+      row("GET", "/orders/{id}", 7.4, { auth_required: true, requests_24h: 24850 }),
+      row("POST", "/cart/items", 3.0, { auth_required: true, requests_24h: 20700 }),
+      row("GET", "/users/{id}", 6.3, { auth_required: true, requests_24h: 14500 }),
+      row("POST", "/checkout", 4.8, { auth_required: true, requests_24h: 8280 }),
+      row("GET", "/debug", 0, { source: "observed", shadow: true, requests_24h: 37 }),
+    ],
+    up_pay: [],
+  };
+}
+
+export function seedAudit(): AuditEntry[] {
+  return [
+    {
+      id: "au_0002",
+      ts: minutesAgo(94),
+      actor: "analyst@demo.local",
+      action: "scan.start",
+      target_type: "scan",
+      target_id: "sc_001",
+      details: { upstream_id: "up_shop", safe_mode: true },
+    },
+    {
+      id: "au_0001",
+      ts: minutesAgo(60 * 26),
+      actor: "admin@demo.local",
+      action: "rule.create",
+      target_type: "rule",
+      target_id: "block-admin-writes",
+      details: { action: "block" },
+    },
+  ];
 }

@@ -1,13 +1,17 @@
 /** In-memory mock store. Writes persist for the browser session so actions visibly change the UI. */
-import type { MetricsSummary, Range, Timeseries } from "@/api/schemas";
+import type { MetricsSummary, Range, Timeseries, TrafficEvent } from "@/api/schemas";
 import {
   baseRpm,
   callers,
   endpointProfiles,
   rng,
   seedAlerts,
+  seedAudit,
   seedFindings,
+  seedInventory,
   seedLearning,
+  seedRules,
+  seedScans,
   settings,
   upstreams,
 } from "./seed";
@@ -18,7 +22,46 @@ export const db = {
   alerts: seedAlerts(),
   learning: seedLearning(),
   findings: seedFindings(),
+  rules: seedRules(),
+  scans: seedScans(),
+  inventory: seedInventory(),
+  audit: seedAudit(),
 };
+
+let auditSeq = 100;
+export function audit(actor: string, action: string, target_type: string, target_id?: string, details: Record<string, unknown> = {}) {
+  db.audit.unshift({ id: `au_${++auditSeq}`, ts: new Date().toISOString(), actor, action, target_type, target_id, details });
+}
+
+/** Recent traffic events, newest first, shaped like the Admin API's masked events. */
+export function buildRecentTraffic(upstreamId: string, limit: number): TrafficEvent[] {
+  const profiles = endpointProfiles[upstreamId] ?? [];
+  const callerList = callers[upstreamId] ?? [];
+  if (!profiles.length) return [];
+  const rand = rng(Math.floor(Date.now() / 5000));
+  const out: TrafficEvent[] = [];
+  for (let i = 0; i < limit; i++) {
+    const p = profiles[Math.floor(rand() * profiles.length)];
+    const caller = callerList[Math.floor(rand() * callerList.length)];
+    const blocked = rand() < p.blockRate * 4;
+    out.push({
+      ts: new Date(Date.now() - i * 900).toISOString(),
+      req_id: `req_${(Date.now() - i).toString(16)}`,
+      caller,
+      ip: caller.startsWith("ip_") ? caller : `ip_${caller.slice(-8)}`,
+      method: p.method,
+      path_template: p.path_template,
+      status: blocked ? 403 : 200,
+      latency_ms: Math.round((20 + rand() * 160) * 100) / 100,
+      req_size: p.method === "GET" ? 0 : Math.round(rand() * 800),
+      resp_size: Math.round(200 + rand() * 3000),
+      shape_hash: Math.floor(rand() * 2 ** 48).toString(16).padStart(12, "0"),
+      rule_hits: blocked ? ["builtin-sqli"] : [],
+      action: blocked ? "block" : "allow",
+    });
+  }
+  return out;
+}
 
 const rangeConfig: Record<Range, { points: number; stepMin: number }> = {
   "1h": { points: 60, stepMin: 1 },

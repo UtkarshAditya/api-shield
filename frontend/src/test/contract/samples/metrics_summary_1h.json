@@ -1,0 +1,33 @@
+{
+  "active_alerts": 5,
+  "allowed": 30,
+  "blocked": 0,
+  "p95_latency_ms": 39.062,
+  "previous": {
+    "active_alerts": 0,
+    "blocked": 30,
+    "p95_latency_ms": 12.446,
+    "requests": 30,
+    "risk_score": 0.0
+  },
+  "range": "1h",
+  "requests": 30,
+  "risk_drivers": [],
+  "risk_score": 0.0,
+  "top_callers": [
+    {
+      "alerts": 0,
+      "caller": "user_2ee901c1",
+      "requests": 30
+    }
+  ],
+  "top_endpoints": [
+    {
+      "blocked": 0,
+      "method": "GET",
+      "path_template": "/search",
+      "requests": 30,
+      "risk_score": 0.0
+    }
+  ]
+}
