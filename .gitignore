@@ -1,6 +1,21 @@
+# Dependencies and build output
+node_modules/
+frontend/dist/
+
+# Python
 .venv/
 __pycache__/
 *.pyc
+
+# Local config and data
 .env
 *.db
-node_modules/gateway/rules/dynamic.json
+
+# Gateway runtime state
+gateway/rules/dynamic.json
+
+# Scanner output
+*_report.json
+*_report.html
+*_rules.yaml
+*_endpoint_risk.json
