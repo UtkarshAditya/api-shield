@@ -36,11 +36,17 @@ def _adapt_rule(raw: dict) -> dict:
 
 
 def export_rules(findings: list) -> list[dict]:
-    """One adapted rule per fixable finding, deduplicated by rule id."""
+    """One adapted rule per fixable finding, deduplicated by rule id.
+    Rules that downgrade to 'log' with no real condition fire on every
+    request to that path, which floods the gateway/dashboard with noise
+    on normal traffic. Those findings still appear in the report; they
+    just aren't exported as enforceable gateway rules."""
     seen = {}
     for f in findings:
         if f.suggested_rule:
             adapted = _adapt_rule(f.suggested_rule)
+            if adapted["action"] == "log":
+                continue
             seen[adapted["id"]] = adapted
     return list(seen.values())
 

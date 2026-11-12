@@ -29,11 +29,11 @@ def test_injection_uses_builtin_sqli_signature():
     assert rules[0]["action"] == "block"
 
 
-def test_unsupported_action_downgrades_to_log():
+def test_unsupported_action_is_not_exported():
     f = _finding_with_rule({"id": "r4", "match": {"path": "/users/{id}"},
                               "action": "enforce_ownership", "source": "scanner"})
     rules = export_rules([f])
-    assert rules[0]["action"] == "log"
+    assert rules == []
 
 
 def test_dedup_by_id():
