@@ -1,5 +1,5 @@
 /** In-memory mock store. Writes persist for the browser session so actions visibly change the UI. */
-import type { MetricsSummary, Range, Timeseries, TrafficEvent } from "@/api/schemas";
+import type { Finding, MetricsSummary, Range, Timeseries, TrafficEvent } from "@/api/schemas";
 import {
   baseRpm,
   callers,
@@ -16,17 +16,39 @@ import {
   upstreams,
 } from "./seed";
 
-export const db = {
-  upstreams: [...upstreams],
-  settings: structuredClone(settings),
-  alerts: seedAlerts(),
-  learning: seedLearning(),
-  findings: seedFindings(),
-  rules: seedRules(),
-  scans: seedScans(),
-  inventory: seedInventory(),
-  audit: seedAudit(),
-};
+function fresh() {
+  const findings = seedFindings();
+  // Findings per scan. `findings[upstream]` is always the latest scan's list (it drives the risk score).
+  const scanFindings: Record<string, Finding[]> = { sc_001: findings.up_shop };
+  return {
+    upstreams: [...upstreams],
+    settings: structuredClone(settings),
+    alerts: seedAlerts(),
+    learning: seedLearning(),
+    findings,
+    scanFindings,
+    rules: seedRules(),
+    scans: seedScans(),
+    inventory: seedInventory(),
+    audit: seedAudit(),
+  };
+}
+
+export const db = fresh();
+
+/** Back to the seeded demo state (tests, and the mock equivalent of scripts/demo_reset.py). */
+export function resetDb() {
+  Object.assign(db, fresh());
+}
+
+/** A new mock scan reports the seeded findings again, re-opened and with their own ids. */
+export function findingsForNewScan(upstreamId: string, scanId: string): Finding[] {
+  const template = seedFindings()[upstreamId] ?? [];
+  const list = template.map((f) => ({ ...f, id: `${scanId}_${f.id}`, scan_id: scanId, status: "open" as const }));
+  db.scanFindings[scanId] = list;
+  db.findings[upstreamId] = list;
+  return list;
+}
 
 let auditSeq = 100;
 export function audit(actor: string, action: string, target_type: string, target_id?: string, details: Record<string, unknown> = {}) {
@@ -38,15 +60,20 @@ export function buildRecentTraffic(upstreamId: string, limit: number): TrafficEv
   const profiles = endpointProfiles[upstreamId] ?? [];
   const callerList = callers[upstreamId] ?? [];
   if (!profiles.length) return [];
-  const rand = rng(Math.floor(Date.now() / 5000));
+  // One event per 900 ms slot, seeded by the slot: polling sees the same ids again (and dedupes
+  // them) plus the new slots since the last poll, like a real stream.
+  const STEP = 900;
+  const newest = Math.floor(Date.now() / STEP);
   const out: TrafficEvent[] = [];
   for (let i = 0; i < limit; i++) {
+    const slot = newest - i;
+    const rand = rng(slot * 2654435761 + upstreamId.length);
     const p = profiles[Math.floor(rand() * profiles.length)];
     const caller = callerList[Math.floor(rand() * callerList.length)];
     const blocked = rand() < p.blockRate * 4;
     out.push({
-      ts: new Date(Date.now() - i * 900).toISOString(),
-      req_id: `req_${(Date.now() - i).toString(16)}`,
+      ts: new Date(slot * STEP).toISOString(),
+      req_id: `req_${upstreamId.slice(3)}_${slot.toString(16)}`,
       caller,
       ip: caller.startsWith("ip_") ? caller : `ip_${caller.slice(-8)}`,
       method: p.method,

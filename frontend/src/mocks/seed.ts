@@ -61,7 +61,7 @@ export const baseRpm: Record<string, number> = { up_shop: 1450, up_pay: 380 };
 
 /** Caller IDs as the Admin API returns them: `key_` is the gateway's key hash, `ip_`/`user_` are pseudonymized. */
 export const callers: Record<string, string[]> = {
-  up_shop: ["key_4c1e7b20", "key_9f3a1c2e", "key_a07b93d4", "key_d2e85f01", "ip_5be03a71", "key_77c0e6aa"],
+  up_shop: ["key_4c1e7b20", "key_929bf132", "key_a07b93d4", "key_d2e85f01", "ip_5be03a71", "key_77c0e6aa"],
   up_pay: ["key_e1a40c55", "key_7d02bb19", "key_b33f6a80"],
 };
 
@@ -72,7 +72,7 @@ export function seedAlerts(): Record<string, Alert[]> {
     {
       id: "al_1001",
       ts: minutesAgo(2),
-      caller: "key_9f3a1c2e",
+      caller: "key_929bf132",
       endpoint: "GET /search",
       score: 0.97,
       rank: 1,
@@ -85,7 +85,7 @@ export function seedAlerts(): Record<string, Alert[]> {
       explanation:
         "This caller is hitting /search 14× faster than usual with a query shape we've never seen, and a third of the responses are server errors. That pattern usually means automated injection probing.",
       status: "new",
-      group_id: "grp_9f3a",
+      group_id: "grp_929b",
       timeline: Array.from({ length: 12 }, (_, i) => ({ ts: minutesAgo(12 - i), count: i < 8 ? 25 + (i % 3) : 380 + i * 8 })),
     },
     {
@@ -138,7 +138,7 @@ export function seedAlerts(): Record<string, Alert[]> {
     {
       id: "al_1005",
       ts: minutesAgo(41),
-      caller: "key_9f3a1c2e",
+      caller: "key_929bf132",
       endpoint: "GET /users/{id}",
       score: 0.44,
       rank: 5,
@@ -146,7 +146,7 @@ export function seedAlerts(): Record<string, Alert[]> {
       reasons: [{ feature: "Off-hours activity", observed: "03:12 local", baseline: "09:00–19:00" }],
       explanation: "This key is usually active during business hours and is now calling /users at 3 a.m. On its own this is low risk, but the same key is also behind the top alert.",
       status: "new",
-      group_id: "grp_9f3a",
+      group_id: "grp_929b",
     },
     {
       id: "al_1006",

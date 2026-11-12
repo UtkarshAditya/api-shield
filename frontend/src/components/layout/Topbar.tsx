@@ -1,11 +1,11 @@
 import * as DM from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronDown, LogOut, Moon, Server, Sun, User } from "lucide-react";
-import { useLearningStatus, useSettings } from "@/api/queries";
+import { useLearningStatus } from "@/api/queries";
 import { useWorkspace } from "@/app/WorkspaceContext";
 import { useAuth } from "@/auth/AuthContext";
 import { roleLabel } from "@/auth/roles";
 import { LearningChip } from "@/components/domain/LearningChip";
-import { ModeBadge } from "@/components/domain/ModeBadge";
+import { ModeControl } from "@/components/domain/ModeControl";
 import { Button } from "@/components/ui/Button";
 import { useTheme } from "@/theme/ThemeProvider";
 
@@ -76,7 +76,6 @@ function UserMenu() {
 
 export function Topbar() {
   const { upstreamId } = useWorkspace();
-  const { data: settings } = useSettings();
   const { data: learning } = useLearningStatus(upstreamId);
   const { theme, toggle } = useTheme();
 
@@ -84,7 +83,7 @@ export function Topbar() {
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-bg/85 px-4 backdrop-blur md:px-6">
       <UpstreamSelector />
       <div className="flex-1" />
-      <ModeBadge mode={settings?.mode} />
+      <ModeControl />
       <LearningChip status={learning} />
       <Button variant="ghost" size="sm" onClick={toggle} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
         {theme === "dark" ? <Sun className="size-4" aria-hidden /> : <Moon className="size-4" aria-hidden />}

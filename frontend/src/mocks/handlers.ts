@@ -2,11 +2,12 @@ import { delay, http, HttpResponse } from "msw";
 import { API_BASE } from "@/api/client";
 import type { Alert, Range, Rule, Scan } from "@/api/schemas";
 import { can, type Permission } from "@/auth/roles";
-import { audit, buildRecentTraffic, buildSummary, buildTimeseries, db } from "./db";
+import { audit, buildRecentTraffic, buildSummary, buildTimeseries, db, findingsForNewScan } from "./db";
 import { demoUsers } from "./seed";
 
 const url = (p: string) => `${API_BASE}${p}`;
-const latency = () => delay(150 + Math.random() * 250);
+// No artificial latency under vitest, so screen tests stay fast and deterministic.
+const latency = () => (import.meta.env.MODE === "test" ? Promise.resolve() : delay(150 + Math.random() * 250));
 const error = (status: number, code: string, message: string) =>
   HttpResponse.json({ error: { code, message }, request_id: `mock_${Date.now().toString(16)}` }, { status });
 
@@ -158,6 +159,7 @@ export const handlers = [
     if (denied) return denied;
     const rule = (db.rules[upstreamOf(request)] ?? []).find((r) => r.id === params.id);
     if (!rule) return error(404, "not_found", "Rule not found.");
+    if (rule.source === "builtin") return error(409, "rule_read_only", "This rule comes from the gateway's rule files. Edit it there.");
     const { id: _id, hits_24h: _h, created_at: _c, created_by: _b, ...patch } = (await request.json()) as Partial<Rule>;
     Object.assign(rule, patch);
     audit(user.email, "rule.update", "rule", rule.id, { fields: Object.keys(patch) });
@@ -171,6 +173,7 @@ export const handlers = [
     const list = db.rules[upstreamOf(request)] ?? [];
     const idx = list.findIndex((r) => r.id === params.id);
     if (idx < 0) return error(404, "not_found", "Rule not found.");
+    if (list[idx].source === "builtin") return error(409, "rule_read_only", "This rule comes from the gateway's rule files. Edit it there.");
     list.splice(idx, 1);
     audit(user.email, "rule.delete", "rule", String(params.id));
     return new HttpResponse(null, { status: 204 });
@@ -297,15 +300,22 @@ export const handlers = [
     if (denied) return denied;
     const body = (await request.json()) as { upstream_id: string; consent?: boolean; safe_mode?: boolean };
     if (body.consent !== true) return error(400, "consent_required", "Confirm that you own this API before scanning it.");
+    if (body.safe_mode === false) return error(422, "safe_mode_required", "The scanner always runs in safe mode for now.");
     const list = (db.scans[body.upstream_id] ??= []);
+    if (list.map(scanView).some((s) => s.status === "queued" || s.status === "running"))
+      return error(409, "scan_in_progress", "A scan of this API is already running.");
+    const id = `sc_${Date.now().toString(16)}`;
+    const found = findingsForNewScan(body.upstream_id, id);
+    const counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+    for (const f of found) counts[f.severity] += 1;
     const scan: Scan = {
-      id: `sc_${Date.now().toString(16)}`,
+      id,
       upstream_id: body.upstream_id,
       status: "queued",
       progress: 0,
       started_at: new Date().toISOString(),
-      counts: { critical: 1, high: 2, medium: 0, low: 0, info: 0 },
-      api_risk_score: 8.2,
+      counts,
+      api_risk_score: found.length ? Math.max(...found.map((f) => f.risk_score)) : 0.5,
     };
     scanStarted.set(scan.id, Date.now());
     list.unshift(scan);
@@ -321,15 +331,19 @@ export const handlers = [
     return scan ? HttpResponse.json(scanView(scan)) : error(404, "not_found", "Scan not found.");
   }),
 
-  http.get(url("/scans/:id/findings"), async ({ request }) => {
+  http.get(url("/scans/:id/findings"), async ({ request, params }) => {
     await latency();
-    // Every mock scan reports the same seeded findings.
-    return paged(db.findings[upstreamOf(request)] ?? [], request);
+    const scan = Object.values(db.scans)
+      .flat()
+      .find((s) => s.id === params.id);
+    if (!scan) return error(404, "not_found", "Scan not found.");
+    if (scanView(scan).status !== "done") return paged([], request);
+    return paged(db.scanFindings[scan.id] ?? [], request);
   }),
 
   http.get(url("/scans/:id/report"), async ({ request, params }) => {
     await latency();
-    const findings = db.findings[upstreamOf(request)] ?? [];
+    const findings = db.scanFindings[String(params.id)] ?? [];
     if (new URL(request.url).searchParams.get("format") === "html") {
       return HttpResponse.html(`<!doctype html><title>Scan ${params.id}</title><h1>Mock report</h1><p>${findings.length} findings</p>`);
     }
@@ -340,7 +354,7 @@ export const handlers = [
     await latency();
     const { user, denied } = authorize(request, "rules.edit");
     if (denied) return denied;
-    const finding = Object.values(db.findings)
+    const finding = Object.values(db.scanFindings)
       .flat()
       .find((f) => f.id === params.id);
     if (!finding) return error(404, "not_found", "Finding not found.");
@@ -350,7 +364,8 @@ export const handlers = [
     const idx = list.findIndex((r) => r.id === rule.id);
     if (idx >= 0) list[idx] = rule;
     else list.push(rule);
-    finding.status = "mitigated";
+    // Same rule as the Admin API: only rules that stop the attack mitigate the finding.
+    if (["block", "throttle", "challenge"].includes(rule.action)) finding.status = "mitigated";
     audit(user.email, "finding.apply_rule", "finding", finding.id, { rule_id: rule.id });
     return HttpResponse.json(finding);
   }),

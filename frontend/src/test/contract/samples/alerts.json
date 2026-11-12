@@ -1,10 +1,10 @@
 {
   "items": [
     {
-      "caller": "key_9f3a1c2e",
+      "caller": "key_929bf132",
       "endpoint": "GET /search",
       "explanation": "This caller is hitting /search 14× faster than usual with a query shape we've never seen, and a third of the responses are server errors. That pattern usually means automated injection probing.",
-      "group_id": "grp_9f3a",
+      "group_id": "grp_929b",
       "id": "al_1001",
       "rank": 1,
       "reasons": [

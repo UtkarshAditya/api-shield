@@ -71,6 +71,8 @@ type StreamOptions<S extends z.ZodTypeAny> = {
   poll: () => Promise<z.infer<S>[]>;
   keyOf: (item: z.infer<S>) => string;
   pollMs?: number;
+  /** Skip SSE and poll from the start (mock mode has no stream). */
+  preferPolling?: boolean;
 };
 
 /**
@@ -106,7 +108,7 @@ export function openEventStream<S extends z.ZodTypeAny>(opts: StreamOptions<S>):
     void tick();
   };
 
-  if (typeof EventSource === "undefined" || !authToken) {
+  if (opts.preferPolling || typeof EventSource === "undefined" || !authToken) {
     startPolling();
   } else {
     let opened = false;
@@ -168,4 +170,32 @@ export async function request<S extends z.ZodTypeAny>(path: string, opts: Reques
     throw err;
   }
   return parsed.data;
+}
+
+/**
+ * Fetches a file with the session token (report exports) and hands it to the browser as a
+ * download. A plain <a href> cannot send the Authorization header.
+ */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  const res = await fetch(buildUrl(path), { headers });
+  if (!res.ok) {
+    if (res.status === 401) onUnauthorized?.();
+    const data: unknown = await res.json().catch(() => null);
+    const parsed = ApiError.safeParse(data);
+    throw new HttpError(
+      res.status,
+      parsed.success ? parsed.data.error.code : "http_error",
+      parsed.success ? parsed.data.error.message : `Download failed (${res.status})`,
+    );
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

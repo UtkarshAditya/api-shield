@@ -28,10 +28,15 @@ The learner (M3) is not in the repo yet; it will share the `alerts`, `learning_s
 .venv/Scripts/python -m pytest admin_api/tests     # Admin API (also gateway/tests, scanner/tests)
 .venv/Scripts/python -m admin_api                  # :8000, API under /api
 python scripts/simulate_traffic.py                 # demo traffic + attack burst through the gateway
+python scripts/demo_check.py                       # whole demo flow against a running stack, PASS/FAIL per step
+python scripts/demo_reset.py                       # back to the demo's starting state (needs DEMO_SEED=true)
 docker compose up --build                          # whole stack (cp .env.example .env first)
 ```
 
 Running `pytest admin_api/tests` also regenerates `frontend/src/test/contract/samples/`. The frontend contract test parses those samples with the Zod schemas.
+A plain `pytest` from the repo root runs every package's tests (the root `conftest.py` puts `learning/` on the path). The learning tests need `pip install -r learning/requirements.txt`.
+
+The demo runbook is `docs/DEMO.md`.
 
 **Frontend.** Run these from `frontend/`. Use npm; pnpm is not installed.
 
@@ -42,7 +47,10 @@ npm run typecheck                     # tsc only
 npm test                              # vitest run (all)
 npx vitest run src/test/core.test.tsx # single file
 npx vitest run -t "roles"             # single test by name
+VITE_API_BASE=http://localhost:8000/api npx vitest run src/test/live.test.tsx   # every screen against a running Admin API
 ```
+
+Screen tests use `src/test/renderScreen.tsx`, which runs the MSW handlers in Node and resets the mock store before each test.
 
 - **Demo logins:** `admin@demo.local`, `analyst@demo.local` and `viewer@demo.local`, all with the password `demo`. These only work in mock mode.
 - **Vitest config:** lives in `vitest.config.ts`, separate from `vite.config.ts`. Vitest 2 types clash with Vite 6, so keep them apart.
@@ -73,7 +81,7 @@ npx vitest run -t "roles"             # single test by name
 - `app/router.tsx` lazy-loads every route.
 - Public routes are `/` (landing) and `/login`.
 - `/app/*` sits behind `RequireAuth` and then `AppShell`.
-- Screens that aren't built yet are stubs in `features/placeholders.tsx`.
+- Every sidebar route is a real screen under `features/<name>/`. Shared dialogs (`Modal`, `ConfirmDialog`, `Sheet`) are in `components/ui/Dialog.tsx`; use `describeError()` (`lib/errors.ts`) for error text.
 
 **Landing page** (`features/landing/`). It is a scroll-scrubbed GSAP ScrollTrigger story over a layered SVG vault door.
 - `story.ts` holds the copy and each chapter's start position.

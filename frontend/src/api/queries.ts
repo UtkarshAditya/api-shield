@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   alertsApi,
   auditApi,
@@ -10,8 +10,9 @@ import {
   settingsApi,
   trafficApi,
   upstreamsApi,
+  type RuleInput,
 } from "./endpoints";
-import type { Range } from "./schemas";
+import type { Alert, Range, Rule, Settings } from "./schemas";
 
 export const qk = {
   me: ["me"] as const,
@@ -98,5 +99,94 @@ export const useFindings = (scanId: string | undefined) =>
 export const useEndpointInventory = (upstreamId: string | undefined) =>
   useQuery({ queryKey: qk.inventory(upstreamId ?? ""), queryFn: () => inventoryApi.list(upstreamId!), enabled: !!upstreamId });
 
-export const useAuditLog = (params: { action?: string; limit?: number; offset?: number } = {}) =>
-  useQuery({ queryKey: qk.audit(params), queryFn: () => auditApi.list(params) });
+export const useAuditLog = (params: { action?: string; limit?: number; offset?: number } = {}, enabled = true) =>
+  useQuery({ queryKey: qk.audit(params), queryFn: () => auditApi.list(params), enabled });
+
+// ---- Mutations. Each one refreshes what it changes, so screens stay consistent. ----
+
+export function useUpdateSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: Partial<Omit<Settings, "upstreams">>) => settingsApi.update(patch),
+    onSuccess: (settings) => {
+      qc.setQueryData(qk.settings, settings);
+      void qc.invalidateQueries({ queryKey: ["audit"] });
+    },
+  });
+}
+
+export function useStartScan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: scansApi.start,
+    onSuccess: (scan) => {
+      qc.setQueryData(qk.scan(scan.id), scan);
+      void qc.invalidateQueries({ queryKey: qk.scans(scan.upstream_id) });
+    },
+  });
+}
+
+export function useApplyRule(upstreamId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (findingId: string) => scansApi.applyRule(findingId),
+    onSuccess: (finding) => {
+      void qc.invalidateQueries({ queryKey: qk.findings(finding.scan_id) });
+      void qc.invalidateQueries({ queryKey: qk.rules(upstreamId ?? "") });
+      void qc.invalidateQueries({ queryKey: ["metrics"] });
+      void qc.invalidateQueries({ queryKey: ["endpoints"] });
+    },
+  });
+}
+
+export function useRuleMutations(upstreamId: string | undefined) {
+  const qc = useQueryClient();
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: qk.rules(upstreamId ?? "") });
+    void qc.invalidateQueries({ queryKey: ["endpoints"] });
+  };
+  return {
+    create: useMutation({ mutationFn: (rule: RuleInput) => rulesApi.create(upstreamId!, rule), onSuccess: refresh }),
+    update: useMutation({
+      mutationFn: ({ id, patch }: { id: string; patch: Partial<RuleInput> }) => rulesApi.update(upstreamId!, id, patch),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => rulesApi.remove(upstreamId!, id), onSuccess: refresh }),
+  };
+}
+
+export function useAlertStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Alert["status"] }) => alertsApi.setStatus(id, status),
+    onSuccess: (res) => {
+      qc.setQueryData(qk.alert(res.alert.id), res.alert);
+      void qc.invalidateQueries({ queryKey: ["alerts"] });
+      void qc.invalidateQueries({ queryKey: ["metrics", "summary"] });
+    },
+  });
+}
+
+export function usePromoteAlert(upstreamId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: Rule["action"] }) =>
+      alertsApi.promoteToRule(upstreamId!, id, action === "throttle" ? { action, limit: 10, per: 60 } : { action }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: qk.rules(upstreamId ?? "") }),
+  });
+}
+
+export function useLearningMutations(upstreamId: string | undefined) {
+  const qc = useQueryClient();
+  const set = (status: Awaited<ReturnType<typeof learningApi.status>>) => {
+    qc.setQueryData(qk.learning(upstreamId ?? ""), status);
+    void qc.invalidateQueries({ queryKey: ["audit"] });
+  };
+  return {
+    update: useMutation({
+      mutationFn: (patch: { mode?: "active" | "disabled"; sensitivity?: number }) => learningApi.update(upstreamId!, patch),
+      onSuccess: set,
+    }),
+    reset: useMutation({ mutationFn: () => learningApi.reset(upstreamId!), onSuccess: set }),
+  };
+}

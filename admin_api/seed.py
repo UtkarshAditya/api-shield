@@ -1,5 +1,9 @@
 """Startup rows. The upstream and the settings row always exist; demo users, alerts and
-learning progress are added only when DEMO_SEED=true (they mirror frontend/src/mocks/seed.ts)."""
+learning progress are added only when DEMO_SEED=true (they mirror frontend/src/mocks/seed.ts).
+
+The top seeded alerts belong to key_929bf132, the gateway's id for the simulator's attacker key
+(key-mallory, scripts/simulate_traffic.py), so they tell the same story as the alerts the
+demo replay (demo_alerts.py) computes from live traffic."""
 from __future__ import annotations
 
 from datetime import timedelta
@@ -64,8 +68,8 @@ def _demo_alerts(up: str) -> list:
     burst = [{"ts": (ago(12 - i)).isoformat(timespec="seconds").replace("+00:00", "Z"),
               "count": 25 + (i % 3) if i < 8 else 380 + i * 8} for i in range(12)]
     return [
-        AlertRow(id="al_1001", upstream_id=up, ts=ago(2), caller="key_9f3a1c2e", endpoint="GET /search",
-                 score=0.97, rank=1, severity="critical", status="new", group_id="grp_9f3a", timeline=burst,
+        AlertRow(id="al_1001", upstream_id=up, ts=ago(2), caller="key_929bf132", endpoint="GET /search",
+                 score=0.97, rank=1, severity="critical", status="new", group_id="grp_929b", timeline=burst,
                  reasons=[{"feature": "Request rate", "observed": "412 req/min", "baseline": "28 req/min", "z": 14.2},
                           {"feature": "New payload shape", "observed": "query.q: string(len 180+)",
                            "baseline": "string(len ≤ 40)", "z": 9.1},

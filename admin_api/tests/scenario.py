@@ -116,6 +116,7 @@ def call_everything(app, gateway) -> dict:
         rec("alert_patch_false_positive", c.patch("/api/alerts/al_raw", json={"status": "false_positive"},
                                                   headers=analyst))
         rec("alert_promote", c.post(f"/api/alerts/al_1001/promote-to-rule{q}", headers=analyst))
+        rec("demo_alerts_replay", c.post(f"/api/demo/alerts/replay{q}", headers=admin))
         rec("learning_status", c.get(f"/api/learning/status{q}", headers=viewer))
         rec("learning_patch", c.patch(f"/api/learning{q}", json={"sensitivity": 0.7}, headers=admin))
         rec("learning_reset", c.post(f"/api/learning/reset{q}", headers=admin))

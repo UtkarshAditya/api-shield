@@ -32,6 +32,18 @@
       "ts": "2026-01-01T00:00:00.000Z"
     },
     {
+      "action": "alerts.demo_replay",
+      "actor": "admin@demo.local",
+      "details": {
+        "created": 1,
+        "updated": 0
+      },
+      "id": "au_000000000000",
+      "target_id": "up_shop",
+      "target_type": "alerts",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
       "action": "rule.create",
       "actor": "analyst@demo.local",
       "details": {
@@ -120,5 +132,5 @@
       "ts": "2026-01-01T00:00:00.000Z"
     }
   ],
-  "total": 10
+  "total": 11
 }
