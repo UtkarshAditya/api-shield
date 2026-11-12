@@ -50,6 +50,16 @@ def test_normal_use_still_works_through_the_gateway(shielded):
     assert _login(client, password="wrong").status_code == 401  # upstream's own 401 passes through
 
 
+def test_simulator_demo_keys_are_known_and_give_separate_callers(shielded):
+    client, sink = shielded
+    for key in ("key-alice", "key-bob", "key-mallory"):
+        assert client.get("/search", params={"q": "a"}, headers={"X-API-Key": key}).status_code == 200
+    assert client.get("/search", params={"q": "a"}, headers={"X-API-Key": "key-unknown"}).status_code == 401
+    callers = [e["caller"] for e in wait_for_events(sink, 4)[:3]]
+    assert len(set(callers)) == 3 and all(c.startswith("key_") for c in callers)
+    assert not any("alice" in c or "mallory" in c for c in callers)  # the key never appears in events
+
+
 def test_sql_injection_on_search_is_blocked(shielded):
     client, sink = shielded
     r = client.get("/search", params=SQLI)

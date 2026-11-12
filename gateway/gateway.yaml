@@ -16,7 +16,12 @@ event_stream: apishield:traffic
 auth:
   enforce_spec_auth: true               # 401 on routes the spec marks as protected
   api_key_header: x-api-key
-  api_keys: []                          # e.g. - {name: demo-client, key: "change-me"}
+  # DEMO ONLY: keys for scripts/simulate_traffic.py. Replace them anywhere but a laptop
+  # (APISHIELD_API_KEYS=name:key,name2:key2 adds keys from the environment).
+  api_keys:
+    - {name: demo-alice, key: key-alice}       # normal user
+    - {name: demo-bob, key: key-bob}           # normal user
+    - {name: demo-mallory, key: key-mallory}   # attacker in the simulator
   jwt:
     # DEMO ONLY: this is demo_api's hardcoded secret. Use APISHIELD_JWT_SECRET for real.
     secret: dev-secret
