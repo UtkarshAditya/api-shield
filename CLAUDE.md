@@ -10,13 +10,30 @@ APIShield is a self-hosted security gateway with three parts: Scan, Protect and 
 - **M3:** Learning / Alerts
 - **M4:** Platform / UI / QA
 
-Each team member builds their part in parallel. Only the dashboard exists in this repo so far, in `frontend/`. It runs entirely against an in-browser mock of the Admin API until the real backend lands.
+Each team member builds their part in parallel. In the repo so far:
+- `gateway/` (M1) and `scanner/` (M2).
+- `admin_api/` (M4): FastAPI, the only service the dashboard talks to. See `admin_api/README.md`.
+- `frontend/`: the dashboard. It runs against an in-browser mock of the Admin API (`VITE_USE_MOCKS=true`) or the real one.
+- `demo_api/`: the vulnerable demo target.
+
+The learner (M3) is not in the repo yet; it will share the `alerts`, `learning_state` and `alert_feedback` tables.
 
 **User preference:** do not run git commands in this repo.
 
 ## Commands
 
-Run everything from `frontend/`. Use npm; pnpm is not installed.
+**Python (repo root).** The venv is `.venv` (Python 3.13; 3.15 is also installed but too new for some wheels).
+
+```bash
+.venv/Scripts/python -m pytest admin_api/tests     # Admin API (also gateway/tests, scanner/tests)
+.venv/Scripts/python -m admin_api                  # :8000, API under /api
+python scripts/simulate_traffic.py                 # demo traffic + attack burst through the gateway
+docker compose up --build                          # whole stack (cp .env.example .env first)
+```
+
+Running `pytest admin_api/tests` also regenerates `frontend/src/test/contract/samples/`. The frontend contract test parses those samples with the Zod schemas.
+
+**Frontend.** Run these from `frontend/`. Use npm; pnpm is not installed.
 
 ```bash
 npm run dev                           # Vite dev server on :5173, with MSW mocks

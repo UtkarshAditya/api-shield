@@ -1,0 +1,9 @@
+**/node_modules
+**/__pycache__
+**/*.pyc
+.venv
+.git
+frontend/dist
+**/*.db
+.env
+gateway/rules/dynamic.json

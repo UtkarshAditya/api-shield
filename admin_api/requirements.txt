@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+httpx
+redis>=5
+sqlalchemy>=2
+alembic
+psycopg[binary]
+PyJWT
+bcrypt
+# shared with the gateway (rule validation, rule tester) and the scanner (scan runner)
+pyyaml
+jsonschema>=4
+jinja2
+pytest
+fakeredis[lua]

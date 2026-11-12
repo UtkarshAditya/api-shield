@@ -1,0 +1,70 @@
+# APIShield demo stack:  cp .env.example .env && docker compose up --build
+#   dashboard + Admin API  http://localhost:8000   (admin@demo.local / demo)
+#   gateway                http://localhost:8080   (send traffic here)
+#   demo API (direct)      http://localhost:8001   (the scanner targets this, never the gateway)
+name: apishield
+
+x-secrets: &secrets
+  APISHIELD_ADMIN_TOKEN: ${APISHIELD_ADMIN_TOKEN:-change-me-gateway-admin-token}
+
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: apishield
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-postgres}
+      POSTGRES_DB: apishield
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apishield"]
+      interval: 5s
+      retries: 10
+
+  demo-api:
+    build: {context: ., dockerfile: demo_api/Dockerfile}
+    ports: ["8001:8001"]
+
+  gateway:
+    build: {context: ., dockerfile: gateway/Dockerfile}
+    environment:
+      <<: *secrets
+      APISHIELD_UPSTREAM_URL: http://demo-api:8001
+      APISHIELD_REDIS_URL: redis://redis:6379/0
+      APISHIELD_MODE: monitor
+      APISHIELD_API_KEYS: ${APISHIELD_API_KEYS:-alice:key-alice,bob:key-bob,mallory:key-mallory}
+    ports: ["8080:8080"]
+    depends_on:
+      redis: {condition: service_healthy}
+      demo-api: {condition: service_started}
+
+  admin-api:
+    build: {context: ., dockerfile: admin_api/Dockerfile}
+    environment:
+      <<: *secrets
+      ADMIN_DATABASE_URL: postgresql+psycopg://apishield:${POSTGRES_PASSWORD:-change-me-postgres}@postgres:5432/apishield
+      APISHIELD_REDIS_URL: redis://redis:6379/0
+      APISHIELD_GATEWAY_URL: http://gateway:8080
+      APISHIELD_PSEUDO_SALT: ${APISHIELD_PSEUDO_SALT:-change-me-pseudonymization-salt}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-change-me-admin-jwt-secret-at-least-32-bytes}
+      DEMO_SEED: "true"
+      APISHIELD_UPSTREAM_ID: up_shop
+      APISHIELD_UPSTREAM_NAME: Demo Shop API
+      APISHIELD_UPSTREAM_URL: http://demo-api:8001
+      # The scanner's own policy is localhost only; this compose-internal host is added explicitly.
+      APISHIELD_SCAN_ALLOWED_HOSTS: localhost,127.0.0.1,demo-api
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      gateway: {condition: service_started}
+
+volumes:
+  pgdata:
