@@ -1,0 +1,18 @@
+{
+  "caller": "ip_f5d5cd94",
+  "endpoint": "GET /search",
+  "explanation": "user_2ee901c1 at •••• is unusual",
+  "id": "al_raw",
+  "rank": 6,
+  "reasons": [
+    {
+      "baseline": "user_2ee901c1",
+      "feature": "Request rate",
+      "observed": "from ••••"
+    }
+  ],
+  "score": 0.5,
+  "severity": "medium",
+  "status": "new",
+  "ts": "2026-01-01T00:00:00.000Z"
+}

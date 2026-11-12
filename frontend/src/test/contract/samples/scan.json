@@ -1,0 +1,16 @@
+{
+  "api_risk_score": 7.3,
+  "counts": {
+    "critical": 0,
+    "high": 1,
+    "info": 0,
+    "low": 2,
+    "medium": 0
+  },
+  "finished_at": "2026-01-01T00:00:00.000Z",
+  "id": "sc_000000000000",
+  "progress": 1.0,
+  "started_at": "2026-01-01T00:00:00.000Z",
+  "status": "done",
+  "upstream_id": "up_shop"
+}

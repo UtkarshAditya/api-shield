@@ -1,0 +1,325 @@
+{
+  "items": [
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 39.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 38.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 37.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 36.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 35.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 34.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 33.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 32.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 31.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "block",
+      "caller": "ip_1842a461",
+      "ip": "ip_1842a461",
+      "latency_ms": 12.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [
+        "builtin-sqli"
+      ],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 403,
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "allow",
+      "caller": "user_2ee901c1",
+      "ip": "ip_f5d5cd94",
+      "latency_ms": 30.0,
+      "method": "GET",
+      "path_template": "/search",
+      "req_id": "req_0000",
+      "req_size": 0,
+      "resp_size": 100,
+      "rule_hits": [],
+      "shape_hash": "ff417be79483e4e3",
+      "status": 200,
+      "ts": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "total": 20
+}

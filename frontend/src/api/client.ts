@@ -60,6 +60,83 @@ function buildUrl(path: string, query?: Query) {
   return url.toString();
 }
 
+type StreamOptions<S extends z.ZodTypeAny> = {
+  path: string;
+  query?: Query;
+  event: string;
+  schema: S;
+  onEvent: (item: z.infer<S>) => void;
+  onModeChange?: (mode: "live" | "polling") => void;
+  /** Fallback when SSE is unavailable: fetch recent items, oldest first. */
+  poll: () => Promise<z.infer<S>[]>;
+  keyOf: (item: z.infer<S>) => string;
+  pollMs?: number;
+};
+
+/**
+ * Server-sent events with a polling fallback. EventSource cannot send headers, so the token
+ * goes in `access_token` (the Admin API accepts it on the stream route only). If the stream
+ * never opens or is closed for good, this switches to polling. Returns a stop function.
+ */
+export function openEventStream<S extends z.ZodTypeAny>(opts: StreamOptions<S>): () => void {
+  let stopped = false;
+  let source: EventSource | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const seen: string[] = [];
+
+  const deliver = (item: z.infer<S>) => {
+    const key = opts.keyOf(item);
+    if (seen.includes(key)) return;
+    seen.push(key);
+    if (seen.length > 500) seen.shift();
+    opts.onEvent(item);
+  };
+
+  const startPolling = () => {
+    opts.onModeChange?.("polling");
+    const tick = async () => {
+      if (stopped) return;
+      try {
+        (await opts.poll()).forEach(deliver);
+      } catch {
+        // keep polling; the next tick may succeed
+      }
+      timer = setTimeout(tick, opts.pollMs ?? 3000);
+    };
+    void tick();
+  };
+
+  if (typeof EventSource === "undefined" || !authToken) {
+    startPolling();
+  } else {
+    let opened = false;
+    source = new EventSource(buildUrl(opts.path, { ...opts.query, access_token: authToken }));
+    source.addEventListener("open", () => {
+      opened = true;
+      opts.onModeChange?.("live");
+    });
+    source.addEventListener(opts.event, (msg) => {
+      const parsed = opts.schema.safeParse(JSON.parse((msg as MessageEvent<string>).data));
+      if (parsed.success) deliver(parsed.data);
+      else if (import.meta.env.DEV) console.error(new ContractError(opts.path, parsed.error.issues).message);
+    });
+    source.addEventListener("error", () => {
+      if (!source || stopped) return;
+      if (!opened || source.readyState === EventSource.CLOSED) {
+        source.close();
+        source = null;
+        startPolling();
+      }
+    });
+  }
+
+  return () => {
+    stopped = true;
+    source?.close();
+    clearTimeout(timer);
+  };
+}
+
 export async function request<S extends z.ZodTypeAny>(path: string, opts: RequestOptions<S>): Promise<z.infer<S>> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";

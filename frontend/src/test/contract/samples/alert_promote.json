@@ -1,0 +1,20 @@
+{
+  "action": "throttle",
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "created_by": "analyst@demo.local",
+  "enabled": true,
+  "hits_24h": 0,
+  "id": "alert-al_1001",
+  "match": {
+    "condition": "caller == 'key_9f3a1c2e'",
+    "method": "GET",
+    "path": "/search"
+  },
+  "name": "From alert al_1001: GET /search",
+  "priority": 100,
+  "source": "analyst",
+  "throttle": {
+    "limit": 10,
+    "per": 60
+  }
+}

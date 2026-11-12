@@ -1,0 +1,84 @@
+{
+  "items": [
+    {
+      "endpoint": "/search",
+      "evidence": {
+        "request": "GET /search with payload ' OR '1'='1",
+        "response": "200 · result count changed · {\"results\":[{\"email\":\"••••\",\"ip\":\"••••\"}]}"
+      },
+      "fix": "Use parameterized queries.",
+      "id": "fd_000000000000",
+      "method": "GET",
+      "owasp_cat": "API8:2023 Security Misconfiguration (Injection)",
+      "risk_score": 8.0,
+      "scan_id": "sc_000000000000",
+      "severity": "high",
+      "status": "open",
+      "suggested_rule": {
+        "action": "block",
+        "enabled": true,
+        "hits_24h": 0,
+        "id": "rule-block-sqli-q",
+        "match": {
+          "method": "GET",
+          "path": "/search",
+          "signature": "sqli"
+        },
+        "name": "rule block sqli q",
+        "priority": 100,
+        "source": "scanner"
+      },
+      "title": "Possible SQL injection via 'q'"
+    },
+    {
+      "endpoint": "/debug",
+      "evidence": {
+        "request": "GET /debug",
+        "response": "secrets in response · verbose error · token=\"••••\" <script>alert(1)</script>"
+      },
+      "fix": "Remove debug output.",
+      "id": "fd_000000000000",
+      "method": "GET",
+      "owasp_cat": "API8:2023 Security Misconfiguration",
+      "risk_score": 3.6,
+      "scan_id": "sc_000000000000",
+      "severity": "low",
+      "status": "open",
+      "title": "Secrets in response"
+    },
+    {
+      "endpoint": "/login",
+      "evidence": {
+        "request": "POST /login ×25",
+        "response": "never 429"
+      },
+      "fix": "Add a rate limit.",
+      "id": "fd_000000000000",
+      "method": "POST",
+      "owasp_cat": "API4:2023 Unrestricted Resource Consumption",
+      "risk_score": 3.6,
+      "scan_id": "sc_000000000000",
+      "severity": "low",
+      "status": "open",
+      "suggested_rule": {
+        "action": "throttle",
+        "enabled": true,
+        "hits_24h": 0,
+        "id": "rule-ratelimit-login",
+        "match": {
+          "method": "POST",
+          "path": "/login"
+        },
+        "name": "rule ratelimit login",
+        "priority": 100,
+        "source": "scanner",
+        "throttle": {
+          "limit": 5,
+          "per": 60
+        }
+      },
+      "title": "No rate limit on login"
+    }
+  ],
+  "total": 3
+}

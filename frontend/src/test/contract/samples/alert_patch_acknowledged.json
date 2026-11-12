@@ -1,0 +1,29 @@
+{
+  "adjustment": null,
+  "alert": {
+    "caller": "ip_5be03a71",
+    "endpoint": "POST /login",
+    "explanation": "One IP tried 88 different usernames on /login in five minutes, almost all failing. This looks like credential stuffing.",
+    "group_id": "grp_5be0",
+    "id": "al_1002",
+    "rank": 2,
+    "reasons": [
+      {
+        "baseline": "2 in 5 min",
+        "feature": "Failed logins",
+        "observed": "96 in 5 min",
+        "z": 11.3
+      },
+      {
+        "baseline": "1",
+        "feature": "Distinct usernames",
+        "observed": "88",
+        "z": 10.4
+      }
+    ],
+    "score": 0.91,
+    "severity": "high",
+    "status": "acknowledged",
+    "ts": "2026-01-01T00:00:00.000Z"
+  }
+}

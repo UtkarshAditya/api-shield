@@ -1,0 +1,19 @@
+{
+  "fail_open": true,
+  "mode": "enforce",
+  "redaction_patterns": [
+    "authorization",
+    "password",
+    "card_number",
+    "email",
+    "ssn"
+  ],
+  "retention_days": 14,
+  "upstreams": [
+    {
+      "id": "up_shop",
+      "name": "Demo Shop API",
+      "url": "http://localhost:8001"
+    }
+  ]
+}

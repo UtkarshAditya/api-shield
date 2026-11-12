@@ -1,0 +1,124 @@
+{
+  "items": [
+    {
+      "action": "mode.change",
+      "actor": "admin@demo.local",
+      "details": {
+        "from": "monitor",
+        "to": "enforce"
+      },
+      "id": "au_000000000000",
+      "target_type": "settings",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "learning.reset",
+      "actor": "admin@demo.local",
+      "details": {},
+      "id": "au_000000000000",
+      "target_id": "up_shop",
+      "target_type": "learning",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "learning.update",
+      "actor": "admin@demo.local",
+      "details": {
+        "sensitivity": 0.7
+      },
+      "id": "au_000000000000",
+      "target_id": "up_shop",
+      "target_type": "learning",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "rule.create",
+      "actor": "analyst@demo.local",
+      "details": {
+        "action": "throttle",
+        "from_alert": "al_1001"
+      },
+      "id": "au_000000000000",
+      "target_id": "alert-al_1001",
+      "target_type": "rule",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "alert.feedback",
+      "actor": "analyst@demo.local",
+      "details": {
+        "from": "new",
+        "to": "false_positive"
+      },
+      "id": "au_000000000000",
+      "target_id": "al_raw",
+      "target_type": "alert",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "alert.feedback",
+      "actor": "analyst@demo.local",
+      "details": {
+        "from": "new",
+        "to": "acknowledged"
+      },
+      "id": "au_000000000000",
+      "target_id": "al_1002",
+      "target_type": "alert",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "rule.update",
+      "actor": "analyst@demo.local",
+      "details": {
+        "action": "block",
+        "fields": [
+          "enabled"
+        ]
+      },
+      "id": "au_000000000000",
+      "target_id": "block-admin-writes",
+      "target_type": "rule",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "rule.create",
+      "actor": "analyst@demo.local",
+      "details": {
+        "action": "block"
+      },
+      "id": "au_000000000000",
+      "target_id": "block-admin-writes",
+      "target_type": "rule",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "finding.apply_rule",
+      "actor": "analyst@demo.local",
+      "details": {
+        "action": "block",
+        "finding_id": "fd_000000000000",
+        "scan_id": "sc_000000000000"
+      },
+      "id": "au_000000000000",
+      "target_id": "rule-block-sqli-q",
+      "target_type": "rule",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "action": "scan.start",
+      "actor": "analyst@demo.local",
+      "details": {
+        "consent": true,
+        "custom_spec": false,
+        "safe_mode": true,
+        "upstream_id": "up_shop"
+      },
+      "id": "au_000000000000",
+      "target_id": "sc_000000000000",
+      "target_type": "scan",
+      "ts": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "total": 10
+}

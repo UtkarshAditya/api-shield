@@ -1,0 +1,195 @@
+{
+  "items": [
+    {
+      "caller": "key_9f3a1c2e",
+      "endpoint": "GET /search",
+      "explanation": "This caller is hitting /search 14× faster than usual with a query shape we've never seen, and a third of the responses are server errors. That pattern usually means automated injection probing.",
+      "group_id": "grp_9f3a",
+      "id": "al_1001",
+      "rank": 1,
+      "reasons": [
+        {
+          "baseline": "28 req/min",
+          "feature": "Request rate",
+          "observed": "412 req/min",
+          "z": 14.2
+        },
+        {
+          "baseline": "string(len ≤ 40)",
+          "feature": "New payload shape",
+          "observed": "query.q: string(len 180+)",
+          "z": 9.1
+        },
+        {
+          "baseline": "0.4% 5xx",
+          "feature": "Error ratio",
+          "observed": "38% 5xx",
+          "z": 7.7
+        }
+      ],
+      "score": 0.97,
+      "severity": "critical",
+      "status": "new",
+      "timeline": [
+        {
+          "count": 25,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 26,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 27,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 25,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 26,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 27,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 25,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 26,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 444,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 452,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 460,
+          "ts": "2026-01-01T00:00:00.000Z"
+        },
+        {
+          "count": 468,
+          "ts": "2026-01-01T00:00:00.000Z"
+        }
+      ],
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "caller": "ip_5be03a71",
+      "endpoint": "POST /login",
+      "explanation": "One IP tried 88 different usernames on /login in five minutes, almost all failing. This looks like credential stuffing.",
+      "group_id": "grp_5be0",
+      "id": "al_1002",
+      "rank": 2,
+      "reasons": [
+        {
+          "baseline": "2 in 5 min",
+          "feature": "Failed logins",
+          "observed": "96 in 5 min",
+          "z": 11.3
+        },
+        {
+          "baseline": "1",
+          "feature": "Distinct usernames",
+          "observed": "88",
+          "z": 10.4
+        }
+      ],
+      "score": 0.91,
+      "severity": "high",
+      "status": "new",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "caller": "key_a07b93d4",
+      "endpoint": "GET /users/{user_id}",
+      "explanation": "This key is walking user IDs in sequence, far more than any normal client would. It may be scraping other people's profiles (broken object-level authorization).",
+      "group_id": "grp_a07b",
+      "id": "al_1003",
+      "rank": 3,
+      "reasons": [
+        {
+          "baseline": "6 / 10 min",
+          "feature": "Distinct IDs requested",
+          "observed": "640 / 10 min",
+          "z": 8.8
+        },
+        {
+          "baseline": "no",
+          "feature": "Sequential ID access",
+          "observed": "yes"
+        }
+      ],
+      "score": 0.78,
+      "severity": "high",
+      "status": "acknowledged",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "caller": "key_d2e85f01",
+      "endpoint": "POST /comments",
+      "explanation": "Comment requests from this key are about 80× larger than normal. It could be a client bug or an attempt to overload the endpoint.",
+      "group_id": "grp_d2e8",
+      "id": "al_1004",
+      "rank": 4,
+      "reasons": [
+        {
+          "baseline": "0.6 KB",
+          "feature": "Payload size",
+          "observed": "48 KB",
+          "z": 5.2
+        }
+      ],
+      "score": 0.52,
+      "severity": "medium",
+      "status": "new",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "caller": "key_77c0e6aa",
+      "endpoint": "GET /search",
+      "explanation": "A key that normally comes from browsers is now using a script client. Often harmless (for example, a new integration).",
+      "group_id": "grp_77c0",
+      "id": "al_1005",
+      "rank": 5,
+      "reasons": [
+        {
+          "baseline": "browser",
+          "feature": "New user agent family",
+          "observed": "python-requests"
+        }
+      ],
+      "score": 0.21,
+      "severity": "low",
+      "status": "false_positive",
+      "ts": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "caller": "ip_f5d5cd94",
+      "endpoint": "GET /search",
+      "explanation": "user_2ee901c1 at •••• is unusual",
+      "id": "al_raw",
+      "rank": 6,
+      "reasons": [
+        {
+          "baseline": "user_2ee901c1",
+          "feature": "Request rate",
+          "observed": "from ••••"
+        }
+      ],
+      "score": 0.5,
+      "severity": "medium",
+      "status": "new",
+      "ts": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "total": 6
+}

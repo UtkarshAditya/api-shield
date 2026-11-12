@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "validation_error",
+    "message": "range: Input should be '1h', '24h' or '7d'"
+  },
+  "request_id": "00000000000000000000000000000000"
+}

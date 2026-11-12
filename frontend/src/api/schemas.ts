@@ -36,22 +36,29 @@ export const TrafficEvent = z.object({
 });
 export type TrafficEvent = z.infer<typeof TrafficEvent>;
 
+/** A string or a list of strings, as the gateway accepts for `match.method` and `match.ip`. */
+const OneOrMany = z.union([z.string(), z.array(z.string())]);
+
 export const Rule = z.object({
   id: z.string(),
-  name: z.string(),
+  name: z.string(), // the gateway treats it as optional; the Admin API defaults it to the id
   enabled: z.boolean(),
   match: z.object({
     path: z.string().optional(),
-    method: z.string().optional(),
-    ip: z.string().optional(),
-    header: z.record(z.string()).optional(),
+    method: OneOrMany.optional(),
+    ip: OneOrMany.optional(),
+    header: z.record(z.string(), z.string()).optional(),
     signature: z.string().optional(),
     condition: z.string().optional(),
   }),
   action: Action,
   source: z.enum(["builtin", "scanner", "analyst", "learner"]),
   expires_at: z.string().optional(),
+  priority: z.number().optional(), // lower runs first; gateway default 100
+  throttle: z.object({ limit: z.number(), per: z.number() }).optional(), // only for action: throttle
   hits_24h: z.number(),
+  created_at: z.string().optional(), // Admin API metadata (M1 answer to Q10)
+  created_by: z.string().optional(),
 });
 export type Rule = z.infer<typeof Rule>;
 
@@ -85,8 +92,16 @@ export const Alert = z.object({
   explanation: z.string(),
   status: z.enum(["new", "acknowledged", "true_positive", "false_positive"]),
   group_id: z.string().optional(),
+  timeline: z.array(z.object({ ts: z.string(), count: z.number() })).optional(), // CONTRACT-TBD: M3, Q15
 });
 export type Alert = z.infer<typeof Alert>;
+
+/** Response to `PATCH /alerts/:id` with status false_positive. CONTRACT-TBD: M3, Q14. */
+export const AlertFeedbackResponse = z.object({
+  alert: Alert,
+  adjustment: z.object({ feature: z.string(), threshold_delta: z.number() }).nullable(),
+});
+export type AlertFeedbackResponse = z.infer<typeof AlertFeedbackResponse>;
 
 export const LearningStatus = z.object({
   mode: z.enum(["warmup", "active", "disabled"]),
@@ -95,6 +110,7 @@ export const LearningStatus = z.object({
   ends_at: z.string().optional(),
   endpoints_learned: z.number(),
   shapes_learned: z.number().optional(), // CONTRACT-TBD: brief mentions "shape count" but it is not in the type
+  sensitivity: z.number().min(0).max(1).optional(), // CONTRACT-TBD: M3, Q16
 });
 export type LearningStatus = z.infer<typeof LearningStatus>;
 
@@ -153,4 +169,67 @@ export type Timeseries = z.infer<typeof Timeseries>;
 export const Paged = <T extends z.ZodTypeAny>(item: T) =>
   z.object({ items: z.array(item), total: z.number() }); // CONTRACT-TBD: pagination envelope
 
-export const ApiError = z.object({ error: z.object({ code: z.string(), message: z.string() }) }); // CONTRACT-TBD
+/** Same envelope as the gateway's errors. */
+export const ApiError = z.object({
+  error: z.object({ code: z.string(), message: z.string() }),
+  request_id: z.string().optional(),
+});
+
+export const SeverityCounts = z.object({
+  critical: z.number(),
+  high: z.number(),
+  medium: z.number(),
+  low: z.number(),
+  info: z.number(),
+});
+
+// CONTRACT-TBD: M2, Q12. `progress` is coarse until run_scan reports progress.
+export const Scan = z.object({
+  id: z.string(),
+  upstream_id: z.string(),
+  status: z.enum(["queued", "running", "done", "failed"]),
+  progress: z.number().min(0).max(1),
+  started_at: z.string(),
+  finished_at: z.string().optional(),
+  counts: SeverityCounts,
+  api_risk_score: z.number().min(0).max(10).optional(),
+  error: z.string().optional(),
+});
+export type Scan = z.infer<typeof Scan>;
+
+// CONTRACT-TBD: M2, Q13. API-map inventory row.
+export const EndpointInventoryItem = z.object({
+  method: z.string(),
+  path: z.string(),
+  source: z.enum(["spec", "observed", "both"]),
+  shadow: z.boolean(),
+  auth_required: z.boolean(),
+  rate_limited: z.boolean(),
+  risk_score: z.number().min(0).max(10),
+  requests_24h: z.number(),
+});
+export type EndpointInventoryItem = z.infer<typeof EndpointInventoryItem>;
+
+// CONTRACT-TBD: Admin API (M4). Result of `POST /rules/test`.
+export const RuleTestResult = z.object({
+  matched: z.boolean(),
+  action: Action.nullable(),
+  explanation: z.string(),
+});
+export type RuleTestResult = z.infer<typeof RuleTestResult>;
+
+// CONTRACT-TBD: Admin API (M4).
+export const AuditEntry = z.object({
+  id: z.string(),
+  ts: z.string(),
+  actor: z.string(),
+  action: z.string(),
+  target_type: z.string(),
+  target_id: z.string().optional(),
+  details: z.record(z.string(), z.unknown()),
+});
+export type AuditEntry = z.infer<typeof AuditEntry>;
+
+// CONTRACT-TBD: Admin API (M4). Response to `POST /privacy/purge`.
+export const PurgeResponse = z.object({ purged_at: z.string(), recent_events: z.number(), aggregate_rows: z.number() });
+export type PurgeResponse = z.infer<typeof PurgeResponse>;

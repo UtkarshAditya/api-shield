@@ -1,0 +1,21 @@
+{
+  "metric": "requests",
+  "points": [
+    {
+      "allowed": 0,
+      "blocked": 0,
+      "t": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "allowed": 0,
+      "blocked": 0,
+      "t": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "allowed": 0,
+      "blocked": 0,
+      "t": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "range": "7d"
+}

@@ -1,0 +1,21 @@
+{
+  "action": "block",
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "created_by": "analyst@demo.local",
+  "enabled": false,
+  "hits_24h": 0,
+  "id": "block-admin-writes",
+  "match": {
+    "ip": [
+      "10.0.0.0/8"
+    ],
+    "method": [
+      "POST",
+      "DELETE"
+    ],
+    "path": "/admin/*"
+  },
+  "name": "block-admin-writes",
+  "priority": 100,
+  "source": "analyst"
+}

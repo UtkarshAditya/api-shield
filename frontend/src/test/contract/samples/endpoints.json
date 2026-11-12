@@ -1,0 +1,75 @@
+{
+  "items": [
+    {
+      "auth_required": true,
+      "method": "GET",
+      "path": "/admin/stats",
+      "rate_limited": false,
+      "requests_24h": 0,
+      "risk_score": 0.0,
+      "shadow": false,
+      "source": "spec"
+    },
+    {
+      "auth_required": false,
+      "method": "POST",
+      "path": "/comments",
+      "rate_limited": false,
+      "requests_24h": 0,
+      "risk_score": 0.0,
+      "shadow": false,
+      "source": "spec"
+    },
+    {
+      "auth_required": false,
+      "method": "GET",
+      "path": "/debug",
+      "rate_limited": false,
+      "requests_24h": 0,
+      "risk_score": 3.6,
+      "shadow": false,
+      "source": "spec"
+    },
+    {
+      "auth_required": false,
+      "method": "POST",
+      "path": "/login",
+      "rate_limited": false,
+      "requests_24h": 0,
+      "risk_score": 3.6,
+      "shadow": false,
+      "source": "spec"
+    },
+    {
+      "auth_required": true,
+      "method": "GET",
+      "path": "/profile",
+      "rate_limited": false,
+      "requests_24h": 0,
+      "risk_score": 0.0,
+      "shadow": false,
+      "source": "spec"
+    },
+    {
+      "auth_required": false,
+      "method": "GET",
+      "path": "/search",
+      "rate_limited": false,
+      "requests_24h": 60,
+      "risk_score": 0.0,
+      "shadow": false,
+      "source": "both"
+    },
+    {
+      "auth_required": true,
+      "method": "GET",
+      "path": "/users/{user_id}",
+      "rate_limited": false,
+      "requests_24h": 0,
+      "risk_score": 0.0,
+      "shadow": false,
+      "source": "spec"
+    }
+  ],
+  "total": 7
+}
