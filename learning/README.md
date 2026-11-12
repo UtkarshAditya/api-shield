@@ -6,7 +6,7 @@ baselines, detecting anomalies, and producing explainable alerts.
 ## Current status
 
 - Configuration reads Redis, stream, M3 consumer-group, consumer-name, and
-  pseudonymization settings from environment variables.
+  shared pseudonymization settings from environment variables.
 - `events.py` validates the gateway event contract without renaming or adding
   event fields.
 - `consumer.py` provides a Redis Streams consumer-group interface. It uses a
@@ -14,10 +14,13 @@ baselines, detecting anomalies, and producing explainable alerts.
   ensure its configured name is distinct from M4's group. It reclaims stale
   pending messages with `XAUTOCLAIM`, falling back to `XPENDING`/`XCLAIM` when
   the Redis server does not support `XAUTOCLAIM`.
-- `features.py` creates feature records with keyed-HMAC caller and IP
-  pseudonyms. Records include UTC time-of-day fields, endpoint and
-  caller/endpoint grouping keys, and request-rate bucket inputs. Raw caller and
-  IP values and request IDs are not included in those records.
+- `features.py` creates separate identifiers for internal baseline learning
+  and alerts. Baseline caller/IP IDs are full-length, domain-separated HMACs
+  derived from the shared salt. Alert caller IDs use the actual
+  `admin_api.privacy.pseudonymize` function once on the original M1 caller.
+  Alert IDs therefore match M4, including `key_` pass-through. Records include
+  UTC time-of-day fields, endpoint/caller grouping keys, and request-rate
+  inputs; raw caller/IP values and request IDs are omitted.
 - `baselines.py` learns endpoint and pseudonymous caller/endpoint statistics
   with EWMA, bounded rolling metrics, warm-up state, shape allow-lists, and
   ordered endpoint transition counts. It writes JSON-safe snapshots through
@@ -30,8 +33,9 @@ baselines, detecting anomalies, and producing explainable alerts.
   enforcement event is a suspicious signal rather than an attack verdict.
 - `detectors/isolation_forest.py` provides deterministic multivariate
   Isolation Forest training and scoring. It uses numeric status, log-scaled
-  sizes/latency, and cyclical time features, and excludes rule-hit and
-  enforced events from normal training. Its 0–1 score is an empirical lower
+  sizes/latency, and cyclical time features, and excludes blocked, throttled,
+  and challenged events from normal training. Allow and log events remain
+  eligible even with rule hits. Its 0–1 score is an empirical lower
   tail rank (higher means more unusual), not a probability. Models are saved
   through a `ModelStore`; the included in-memory store is development-only.
 - `detectors/service.py` runs applicable statistical detectors and an
@@ -56,14 +60,16 @@ M1 Redis Stream -> TrafficEvent validation -> HMAC-safe TrafficFeatures
 
 `FeedbackService` appends analyst labels and updates only the alert's
 `feedback_status`. `ReplayEvaluator` uses the same feature, baseline, detector,
-alert, and storage interfaces without connecting to Redis. No M3 HTTP server,
-Admin API, dashboard, database, or external integration is included.
+alert, and storage interfaces without connecting to Redis. M3 has no HTTP API
+or dashboard integration; it reuses only the shared Admin API privacy function.
 
 No payload values, credentials, authorization headers, or response bodies are
 part of the M3 event or feature models. The gateway event itself includes a raw
 IP and caller identifier, so treat parsed events as transient and do not persist
-them directly. Configure a strong `APISHIELD_PSEUDONYMIZATION_KEY` before
-creating safe features for durable storage.
+them directly. M3 uses the same `APISHIELD_PSEUDO_SALT` as M4. When it is not
+set, both services use the Admin API's documented development-only fallback
+`dev-only-pseudo-salt`; set a strong non-default value in `.env` outside local
+development. M3 never hashes a shared alert caller ID a second time.
 
 The consumer callback receives a `FeatureEnvelope` containing the Redis stream
 entry ID and safe features. Use the entry ID as an idempotency key in the
@@ -77,9 +83,9 @@ restarts.
 |---|---|---|
 | `APISHIELD_REDIS_URL` | `redis://127.0.0.1:6379/0` | Redis connection URL |
 | `APISHIELD_EVENT_STREAM` | `apishield:traffic` | M1 traffic stream |
-| `APISHIELD_LEARNING_CONSUMER_GROUP` | `apishield-m3` | Dedicated M3 group |
+| `APISHIELD_LEARNING_CONSUMER_GROUP` | `learner` | Dedicated M3 group |
 | `APISHIELD_LEARNING_CONSUMER_NAME` | Host name + process ID | M3 consumer identity |
-| `APISHIELD_PSEUDONYMIZATION_KEY` | unset | HMAC key; required to pseudonymize identifiers |
+| `APISHIELD_PSEUDO_SALT` | `dev-only-pseudo-salt` | Shared Admin API/M3 caller pseudonymization salt |
 | `APISHIELD_LEARNING_BATCH_SIZE` | `100` | Maximum entries per read |
 | `APISHIELD_LEARNING_BLOCK_MS` | `1000` | Redis blocking-read timeout |
 | `APISHIELD_LEARNING_MIN_IDLE_MS` | `30000` | Minimum pending-message idle time before reclaim |
@@ -87,11 +93,11 @@ restarts.
 | `APISHIELD_LEARNING_DEAD_LETTER_STREAM` | `apishield:m3:dead-letter` | M3-only bounded failure stream |
 | `APISHIELD_LEARNING_DEAD_LETTER_MAXLEN` | `10000` | Approximate dead-letter stream cap |
 
-The proposed default group is `apishield-m3`; it is configurable and must be
-confirmed with the team before deployment. The consumer creates only this
-configured group with `MKSTREAM`, tolerating `BUSYGROUP` if it already exists.
-It never creates, deletes, or modifies other groups. Redis stream entries are
-expected to contain exactly one field, `data`, with the compact JSON event.
+The default M3 group is `learner`; M4's `admin-api` group is separate. The
+consumer creates only its configured group with `MKSTREAM`, tolerating
+`BUSYGROUP` if it already exists. It never creates, deletes, or modifies other
+groups. Redis stream entries are expected to contain exactly one field,
+`data`, with the compact JSON event.
 
 Malformed events and failed callbacks remain pending and are retried. After the
 configured delivery-attempt limit, the entry is written to the bounded
@@ -103,29 +109,28 @@ entries by Redis stream ID and exception type only.
 
 ## Development and tests
 
-From the repository root, install the M3 dependencies, then run tests from the
-package directory:
+From the repository root, install the M3 dependencies and run the test suite:
 
 ```powershell
 python -m pip install -r learning\requirements.txt
-Set-Location learning
-python -m pytest tests
+python -m pytest -p no:cacheprovider learning/tests -q
 ```
 
 The package requires Redis client support, scikit-learn for Isolation Forest,
-and pytest for its tests.
+and pytest for its tests. The same suite also works from `learning\` with
+`python -m pytest -p no:cacheprovider tests -q`.
 
 ### Running the consumer
 
 There is not yet a production M3 processing/storage service. The development
-console consumer writes feature records to stdout; stdout must be secured
+console consumer writes safe feature records to stdout; stdout must be secured
 because pseudonymous IDs remain linkable. From the repository root in
-PowerShell, configure Redis and a strong key, then run:
+PowerShell, set the shared salt to the same value used by Admin API, then run:
 
 ```powershell
 $env:APISHIELD_REDIS_URL = "redis://127.0.0.1:6379/0"
-$env:APISHIELD_PSEUDONYMIZATION_KEY = "<strong-secret-key>"
-Set-Location learning
+$env:APISHIELD_PSEUDO_SALT = "<shared-secret-salt>"
+$env:PYTHONPATH = "learning"
 python -m apishield_learning
 ```
 
@@ -135,6 +140,24 @@ Press Ctrl+C for shutdown. For an application callback, construct
 idempotent processing successfully before the consumer acknowledges an event;
 do not use a no-op callback. Use the Redis entry ID in `FeatureEnvelope` as the
 downstream idempotency key.
+
+### Docker Compose
+
+The Compose `learning` service builds from [Dockerfile](./Dockerfile), installs
+`learning/requirements.txt`, and copies the shared `admin_api.privacy` module
+from the repository (not a duplicate). It connects to `redis://redis:6379/0`,
+reads `apishield:traffic` in group `learner`, and receives
+`APISHIELD_PSEUDO_SALT` from the same `.env` value as Admin API. From the
+repository root:
+
+```powershell
+docker compose up --build redis learning
+```
+
+M3 currently runs the development consumer callback, which emits privacy-safe
+features to container stdout. Learning storage remains in-memory; this service
+does not persist baselines, alerts, or feedback to PostgreSQL, and no M3
+PostgreSQL adapter is included.
 
 The gateway supplies normalized `path_template` values, not concrete resource
 IDs. Sequential resource-ID enumeration detection is therefore unsupported by
@@ -187,8 +210,10 @@ suspicious signals, not proof of malicious activity.
 `IsolationForestDetector` requires at least 100 valid normal samples by
 default, uses `random_state=42`, and retrains after 100 additional observations
 once eligible. Tune `IsolationForestConfig` for the deployment. Supply only
-active-baseline features to `observe`; blocked, challenged, throttled, and
-rule-hit records are excluded regardless. `fit`, `observe`, `score`, and
+active-baseline features to `observe`; blocked, challenged, and throttled
+records are excluded. Allow and log records remain eligible even when they
+have rule hits; a log rule match is not itself treated as malicious. Invalid
+actions or invalid rule-hit counts are rejected. `fit`, `observe`, `score`, and
 `detect` are explicit operations, so callers control when training records are
 accepted. The model store currently keeps trusted model objects in memory;
 durable model persistence is an adapter responsibility and must not load
@@ -203,8 +228,10 @@ Pass the detector results and the same safe `TrafficFeatures` record to
 `AlertService.generate_alerts(...)`. A single observation with multiple
 detected results creates one grouped caller/endpoint incident. Group keys are
 SHA-256 hashes of the pseudonymous caller, endpoint/method key, and the general
-`traffic_anomaly` type; raw caller and IP identifiers are rejected unless
-they match the HMAC pseudonym format from feature extraction.
+`traffic_anomaly` type; raw caller and IP identifiers are rejected. Current
+M3 HMAC pseudonyms and the Admin API's short `ip_`, `user_`, or `key_`
+identifier formats are accepted, but M3 cannot generate the shared format
+until the Admin API utility is available in this checkout.
 
 An alert's anomaly score is the highest contributing detector score. When a
 configured `EndpointRiskProvider` returns a normalized [0, 1] score, priority

@@ -2,7 +2,9 @@ import json
 
 import pytest
 
-from apishield_learning.config import ConfigurationError
+from admin_api.privacy import pseudonymize
+
+from apishield_learning.config import ConfigurationError, LearningConfig
 from apishield_learning.events import IdentifierPseudonymizer, TrafficEvent
 from apishield_learning.features import extract_features
 
@@ -48,6 +50,9 @@ def test_extract_features_adds_rate_grouping_and_time_features(event):
     assert features.rate_window_start == "2026-11-12T10:15:00Z"
     assert features.endpoint_key == "GET /items/{id}"
     assert features.caller_endpoint_key == f"{features.caller_id}:GET /items/{{id}}"
+    assert features.alert_caller_id == pseudonymize(
+        event.caller, "dev-only-pseudo-salt"
+    )
     assert features.time_of_day_sin == pytest.approx(0.441, abs=0.01)
     assert features.time_of_day_cos == pytest.approx(-0.898, abs=0.01)
 
@@ -66,13 +71,68 @@ def test_feature_record_serializes_to_json_without_raw_identifiers(event):
     assert '"request_count": 1' in serialized
 
 
-def test_feature_extraction_requires_configured_key_when_no_pseudonymizer(
-    event, monkeypatch
-):
-    monkeypatch.delenv("APISHIELD_PSEUDONYMIZATION_KEY", raising=False)
+@pytest.mark.parametrize(
+    ("caller", "expected_prefix"),
+    [
+        ("key_929bf132", "key_929bf132"),
+        ("user_alice", "user_"),
+        ("ip_127.0.0.1", "ip_"),
+        ("127.0.0.1", "ip_"),
+    ],
+)
+def test_alert_caller_id_matches_shared_admin_api(event, caller, expected_prefix):
+    source = TrafficEvent.from_mapping({**EVENT_DATA, "caller": caller})
+    salt = "same-shared-salt"
+    features = extract_features(
+        source,
+        IdentifierPseudonymizer(b"a sufficiently long key for tests"),
+        config=LearningConfig(pseudo_salt=salt),
+    )
 
-    with pytest.raises(ConfigurationError, match="required"):
-        extract_features(event)
+    expected = pseudonymize(caller, salt)
+    assert features.alert_caller_id == expected
+    if expected_prefix.endswith("_"):
+        assert expected.startswith(expected_prefix)
+        assert len(expected.removeprefix(expected_prefix)) == 8
+    else:
+        assert expected == expected_prefix
+
+
+def test_shared_caller_identity_does_not_change_internal_baseline_identity(event):
+    first = extract_features(
+        event,
+        IdentifierPseudonymizer(b"a sufficiently long key for tests"),
+        config=LearningConfig(pseudo_salt="salt-one"),
+    )
+    second = extract_features(
+        event,
+        IdentifierPseudonymizer(b"a sufficiently long key for tests"),
+        config=LearningConfig(pseudo_salt="salt-two"),
+    )
+
+    assert first.caller_id == second.caller_id
+    assert first.caller_endpoint_key == second.caller_endpoint_key
+    assert first.alert_caller_id != second.alert_caller_id
+
+
+def test_internal_baseline_pseudonyms_are_stable_for_the_same_shared_salt(event):
+    config = LearningConfig(pseudo_salt="stable-shared-salt")
+
+    first = extract_features(event, config=config)
+    second = extract_features(event, config=config)
+
+    assert first.caller_id == second.caller_id
+    assert first.ip_id == second.ip_id
+    assert first.alert_caller_id == second.alert_caller_id
+
+
+def test_empty_shared_salt_fails_before_features_are_created(event):
+    with pytest.raises(ConfigurationError, match="must not be empty"):
+        extract_features(
+            event,
+            IdentifierPseudonymizer(b"a sufficiently long key for tests"),
+            config=LearningConfig(pseudo_salt=""),
+        )
 
 
 @pytest.mark.parametrize(

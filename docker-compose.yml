@@ -66,5 +66,16 @@ services:
       redis: {condition: service_healthy}
       gateway: {condition: service_started}
 
+  learning:
+    build: {context: ., dockerfile: learning/Dockerfile}
+    environment:
+      APISHIELD_REDIS_URL: redis://redis:6379/0
+      APISHIELD_EVENT_STREAM: apishield:traffic
+      APISHIELD_LEARNING_CONSUMER_GROUP: learner
+      APISHIELD_PSEUDO_SALT: ${APISHIELD_PSEUDO_SALT:-change-me-pseudonymization-salt}
+    depends_on:
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+
 volumes:
   pgdata:

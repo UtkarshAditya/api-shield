@@ -258,9 +258,9 @@ def _is_normal_candidate(features: TrafficFeatures) -> bool:
     return (
         isinstance(features.rule_hit_count, int)
         and not isinstance(features.rule_hit_count, bool)
-        and features.rule_hit_count == 0
+        and features.rule_hit_count >= 0
         and isinstance(features.action, str)
-        and features.action not in {"block", "throttle", "challenge"}
+        and features.action in {"allow", "log"}
     )
 
 

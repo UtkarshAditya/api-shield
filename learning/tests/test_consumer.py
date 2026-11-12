@@ -2,7 +2,9 @@ import asyncio
 
 import pytest
 
-from apishield_learning.config import LearningConfig
+from admin_api.privacy import pseudonymize
+
+from apishield_learning.config import ConfigurationError, LearningConfig
 from apishield_learning.consumer import (
     FeatureEnvelope,
     RedisStreamConsumer,
@@ -112,9 +114,9 @@ class FakeRedis:
 def build_consumer(redis, **kwargs):
     config = LearningConfig(
         event_stream="apishield:traffic",
-        consumer_group="apishield-m3",
+        consumer_group="learner",
         consumer_name="m3-1",
-        pseudonymization_key="a sufficiently long test key",
+        pseudo_salt="shared-test-salt",
         batch_size=10,
         block_ms=0,
         min_idle_ms=0,
@@ -135,10 +137,11 @@ def test_group_creation_is_scoped_to_m3_and_handles_busygroup():
     redis, consumer = asyncio.run(scenario())
 
     assert redis.group_creates == [
-        ("apishield:traffic", "apishield-m3", "0-0", True),
-        ("apishield:traffic", "apishield-m3", "0-0", True),
+        ("apishield:traffic", "learner", "0-0", True),
+        ("apishield:traffic", "learner", "0-0", True),
     ]
-    assert consumer._consumer_group == "apishield-m3"
+    assert consumer._consumer_group == "learner"
+    assert ("apishield:traffic", "admin-api") not in redis.groups
 
 
 def test_consumer_reads_one_data_field_and_acknowledges_after_callback_success():
@@ -158,13 +161,16 @@ def test_consumer_reads_one_data_field_and_acknowledges_after_callback_success()
     redis, consumer, received, count = asyncio.run(scenario())
 
     assert count == 1
-    assert redis.read_calls[0]["groupname"] == "apishield-m3"
+    assert redis.read_calls[0]["groupname"] == "learner"
     assert redis.read_calls[-1]["streams"] == {"apishield:traffic": ">"}
     assert len(received) == 1
     assert isinstance(received[0], FeatureEnvelope)
     assert received[0].features.path_template == "/"
+    assert received[0].features.alert_caller_id == pseudonymize(
+        "ip_192.0.2.1", "shared-test-salt"
+    )
     assert redis.acknowledgements == [
-        ("apishield:traffic", "apishield-m3", ("1-0",))
+        ("apishield:traffic", "learner", ("1-0",))
     ]
     assert consumer.stats.received == 1
     assert consumer.stats.processed == 1
@@ -191,7 +197,7 @@ def test_failed_callback_is_not_acknowledged_and_is_dead_lettered_after_limit():
 
     assert first_acknowledgements == []
     assert redis.acknowledgements == [
-        ("apishield:traffic", "apishield-m3", ("1-0",))
+        ("apishield:traffic", "learner", ("1-0",))
     ]
     assert len(redis.dead_letters) == 1
     stream, record, options = redis.dead_letters[0]
@@ -295,7 +301,7 @@ def test_successful_callback_with_ack_failure_is_deduplicated_on_redelivery():
 
     assert callback_calls == ["1-0"]
     assert redis.acknowledgements == [
-        ("apishield:traffic", "apishield-m3", ("1-0",))
+        ("apishield:traffic", "learner", ("1-0",))
     ]
     assert consumer.stats.processed == 1
 
@@ -324,17 +330,25 @@ def test_run_reconnects_after_redis_disconnect_and_shuts_down_gracefully():
     assert consumer.stats.processed == 1
 
 
-def test_direct_config_requires_pseudonymization_key_before_processing():
+def test_direct_config_requires_shared_salt_before_processing():
     redis = FakeRedis([("1-0", {b"data": VALID_EVENT})])
     config = LearningConfig(
         event_stream="apishield:traffic",
-        consumer_group="apishield-m3",
+        consumer_group="learner",
         consumer_name="m3-1",
-        pseudonymization_key=None,
+        pseudo_salt="",
     )
 
-    with pytest.raises(ValueError, match="required"):
+    with pytest.raises(ConfigurationError, match="PSEUDO_SALT"):
         RedisStreamConsumer.from_config(config, redis)
+
+
+def test_consumer_builds_without_legacy_pseudonymization_secret():
+    consumer = RedisStreamConsumer.from_config(
+        LearningConfig(pseudo_salt="shared-test-salt"), FakeRedis()
+    )
+
+    assert consumer._consumer_group == "learner"
 
 
 def test_consumer_configuration_rejects_empty_group():

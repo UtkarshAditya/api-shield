@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from admin_api.privacy import pseudonymize
+
 from .config import LearningConfig
 from .events import IdentifierPseudonymizer, TrafficEvent
 
@@ -39,6 +41,7 @@ class TrafficFeatures:
     rate_window_start: str
     endpoint_key: str
     caller_endpoint_key: str
+    alert_caller_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable record suitable for storage/model inputs."""
@@ -54,14 +57,17 @@ def extract_features(
 ) -> TrafficFeatures:
     """Create a deterministic, pseudonymized feature record from one M1 event.
 
-    When the pseudonymizer is not injected, a configured HMAC key is mandatory.
+    Baseline identifiers use an M3-specific key derived from the shared salt.
+    Alert caller identifiers use the shared Admin API function exactly once on
+    the original gateway caller value.
     Raw caller/IP, the M1 request ID, and payload contents are never returned.
     """
+    config = config or LearningConfig.from_env()
     if pseudonymizer is None:
-        config = config or LearningConfig.from_env()
         pseudonymizer = IdentifierPseudonymizer(
-            config.require_pseudonymization_key()
+            config.internal_pseudonymization_key()
         )
+    pseudo_salt = config.require_pseudo_salt()
     if rate_window_seconds <= 0:
         raise ValueError("rate_window_seconds must be positive")
     if event.status < 100 or event.status > MAX_EVENT_STATUS:
@@ -89,6 +95,7 @@ def extract_features(
     rate_window = datetime.fromtimestamp(window_epoch, tz=timezone.utc)
     caller_id = pseudonymizer.pseudonymize("caller", event.caller)
     ip_id = pseudonymizer.pseudonymize("ip", event.ip)
+    alert_caller_id = pseudonymize(event.caller, pseudo_salt)
     endpoint_key = f"{event.method.upper()} {event.path_template}"
 
     return TrafficFeatures(
@@ -112,6 +119,7 @@ def extract_features(
         rate_window_start=rate_window.isoformat().replace("+00:00", "Z"),
         endpoint_key=endpoint_key,
         caller_endpoint_key=f"{caller_id}:{endpoint_key}",
+        alert_caller_id=alert_caller_id,
     )
 
 

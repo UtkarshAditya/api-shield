@@ -140,7 +140,7 @@ class RedisStreamConsumer:
         cls, config: LearningConfig, client: RedisStreamsClient | None = None
     ) -> RedisStreamConsumer:
         """Build a consumer from M3 settings, connecting lazily when needed."""
-        config.require_pseudonymization_key()
+        config.require_pseudo_salt()
         owns_client = client is None
         redis_factory = None
         if client is None:
@@ -300,7 +300,7 @@ class RedisStreamConsumer:
         try:
             event = _parse_fields(fields)
             config_key = self._config_key
-            features = extract_features(event, config_key)
+            features = extract_features(event, config_key, config=self._config)
             envelope = FeatureEnvelope(entry_id=entry_id, features=features)
             result = callback(envelope)
             if inspect.isawaitable(result):
@@ -320,9 +320,9 @@ class RedisStreamConsumer:
         config = self._config
         if config is None:
             raise RuntimeError(
-                "consumer requires a pseudonymization key; construct it with from_config"
+                "consumer requires shared pseudonymization settings; construct it with from_config"
             )
-        return IdentifierPseudonymizer(config.require_pseudonymization_key())
+        return IdentifierPseudonymizer(config.internal_pseudonymization_key())
 
     def use_config(self, config: LearningConfig) -> None:
         """Attach validated settings for feature extraction and run-loop limits."""
@@ -332,7 +332,7 @@ class RedisStreamConsumer:
             or config.consumer_name != self._consumer_name
         ):
             raise ValueError("consumer settings do not match LearningConfig")
-        config.require_pseudonymization_key()
+        config.require_pseudo_salt()
         self._config = config
         self.batch_size = config.batch_size
         self.block_ms = config.block_ms

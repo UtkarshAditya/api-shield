@@ -3,12 +3,13 @@ import pytest
 from apishield_learning.config import ConfigurationError, LearningConfig
 
 
-def test_config_uses_gateway_stream_default_and_dedicated_m3_group():
+def test_config_uses_gateway_stream_default_and_learner_group():
     config = LearningConfig.from_env({})
 
     assert config.redis_url == "redis://127.0.0.1:6379/0"
     assert config.event_stream == "apishield:traffic"
-    assert config.consumer_group == "apishield-m3"
+    assert config.consumer_group == "learner"
+    assert config.pseudo_salt == "dev-only-pseudo-salt"
     assert config.batch_size == 100
 
 
@@ -21,7 +22,7 @@ def test_config_reads_stream_and_consumer_settings_from_environment():
             "APISHIELD_LEARNING_CONSUMER_NAME": "worker-1",
             "APISHIELD_LEARNING_BATCH_SIZE": "24",
             "APISHIELD_LEARNING_BLOCK_MS": "0",
-            "APISHIELD_PSEUDONYMIZATION_KEY": "0123456789abcdef",
+            "APISHIELD_PSEUDO_SALT": "shared-test-salt",
         }
     )
 
@@ -31,7 +32,12 @@ def test_config_reads_stream_and_consumer_settings_from_environment():
     assert config.consumer_name == "worker-1"
     assert config.batch_size == 24
     assert config.block_ms == 0
-    assert config.require_pseudonymization_key() == b"0123456789abcdef"
+    assert config.require_pseudo_salt() == "shared-test-salt"
+    assert config.internal_pseudonymization_key() == (
+        LearningConfig.from_env(
+            {"APISHIELD_PSEUDO_SALT": "shared-test-salt"}
+        ).internal_pseudonymization_key()
+    )
 
 
 @pytest.mark.parametrize(
@@ -47,10 +53,21 @@ def test_config_rejects_invalid_integer_settings(name, value):
         LearningConfig.from_env({name: value})
 
 
-def test_config_requires_strong_key_only_when_pseudonymization_is_requested():
-    with pytest.raises(ConfigurationError, match="required"):
-        LearningConfig.from_env({}).require_pseudonymization_key()
-    with pytest.raises(ConfigurationError, match="at least 16"):
-        LearningConfig.from_env(
-            {"APISHIELD_PSEUDONYMIZATION_KEY": "too-short"}
-        ).require_pseudonymization_key()
+def test_config_uses_shared_salt_without_legacy_secret_setting():
+    config = LearningConfig.from_env({"APISHIELD_PSEUDO_SALT": "shared-salt"})
+
+    assert config.require_pseudo_salt() == "shared-salt"
+
+
+def test_config_rejects_explicitly_empty_shared_salt():
+    with pytest.raises(ConfigurationError, match="must not be empty"):
+        LearningConfig(pseudo_salt="").require_pseudo_salt()
+
+
+def test_internal_pseudonymization_key_is_stable_and_domain_separated():
+    first = LearningConfig(pseudo_salt="same-salt").internal_pseudonymization_key()
+    second = LearningConfig(pseudo_salt="same-salt").internal_pseudonymization_key()
+    different = LearningConfig(pseudo_salt="other-salt").internal_pseudonymization_key()
+
+    assert first == second
+    assert first != different

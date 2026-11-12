@@ -708,11 +708,10 @@ def _coerce_features(value: TrafficFeatures | Mapping[str, Any]) -> TrafficFeatu
     if not isinstance(value, Mapping):
         raise TypeError("feature_record must be TrafficFeatures or a mapping")
     fields = TrafficFeatures.__dataclass_fields__
-    missing = set(fields) - set(value)
-    if missing:
-        raise ValueError(f"missing feature fields: {', '.join(sorted(missing))}")
     try:
-        features = TrafficFeatures(**{name: value[name] for name in fields})
+        features = TrafficFeatures(**{
+            name: value[name] for name in fields if name in value
+        })
     except TypeError as exc:
         raise ValueError("invalid feature record") from exc
     _validate_features(features)

@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import os
 import socket
 from dataclasses import dataclass, field
 from typing import Mapping
+
+_DEV_PSEUDO_SALT = "dev-only-pseudo-salt"
+log = logging.getLogger("apishield.learning.config")
 
 
 class ConfigurationError(ValueError):
@@ -18,11 +23,11 @@ class LearningConfig:
 
     redis_url: str = "redis://127.0.0.1:6379/0"
     event_stream: str = "apishield:traffic"
-    consumer_group: str = "apishield-m3"
+    consumer_group: str = "learner"
     consumer_name: str = field(
         default_factory=lambda: f"{socket.gethostname()}-{os.getpid()}"
     )
-    pseudonymization_key: str | None = None
+    pseudo_salt: str = _DEV_PSEUDO_SALT
     batch_size: int = 100
     block_ms: int = 1000
     dead_letter_stream: str = "apishield:m3:dead-letter"
@@ -34,6 +39,10 @@ class LearningConfig:
     def from_env(cls, env: Mapping[str, str] | None = None) -> LearningConfig:
         """Load settings, allowing a mapping to be supplied for deterministic tests."""
         values = os.environ if env is None else env
+        if "APISHIELD_PSEUDO_SALT" not in values:
+            log.warning(
+                "APISHIELD_PSEUDO_SALT is not set; using the shared development-only salt"
+            )
 
         def positive_int(name: str, default: int, *, allow_zero: bool = False) -> int:
             raw = values.get(name)
@@ -55,13 +64,13 @@ class LearningConfig:
             ),
             event_stream=values.get("APISHIELD_EVENT_STREAM", "apishield:traffic"),
             consumer_group=values.get(
-                "APISHIELD_LEARNING_CONSUMER_GROUP", "apishield-m3"
+                "APISHIELD_LEARNING_CONSUMER_GROUP", "learner"
             ),
             consumer_name=values.get(
                 "APISHIELD_LEARNING_CONSUMER_NAME",
                 f"{socket.gethostname()}-{os.getpid()}",
             ),
-            pseudonymization_key=values.get("APISHIELD_PSEUDONYMIZATION_KEY"),
+            pseudo_salt=values.get("APISHIELD_PSEUDO_SALT", _DEV_PSEUDO_SALT),
             batch_size=positive_int("APISHIELD_LEARNING_BATCH_SIZE", 100),
             block_ms=positive_int("APISHIELD_LEARNING_BLOCK_MS", 1000, allow_zero=True),
             dead_letter_stream=values.get(
@@ -91,15 +100,15 @@ class LearningConfig:
             raise ConfigurationError("dead_letter_stream must differ from event_stream")
         return config
 
-    def require_pseudonymization_key(self) -> bytes:
-        """Return the configured HMAC key or fail closed before identifiers are stored."""
-        if not self.pseudonymization_key:
+    def require_pseudo_salt(self) -> str:
+        """Return the shared Admin API salt, failing closed if explicitly empty."""
+        if not self.pseudo_salt:
             raise ConfigurationError(
-                "APISHIELD_PSEUDONYMIZATION_KEY is required to pseudonymize identifiers"
+                "APISHIELD_PSEUDO_SALT must not be empty"
             )
-        key = self.pseudonymization_key.encode("utf-8")
-        if len(key) < 16:
-            raise ConfigurationError(
-                "APISHIELD_PSEUDONYMIZATION_KEY must be at least 16 UTF-8 bytes"
-            )
-        return key
+        return self.pseudo_salt
+
+    def internal_pseudonymization_key(self) -> bytes:
+        """Derive a domain-separated key for M3's non-alert baseline IDs."""
+        salt = self.require_pseudo_salt().encode("utf-8")
+        return hashlib.sha256(b"apishield:m3:internal-identifiers:" + salt).digest()

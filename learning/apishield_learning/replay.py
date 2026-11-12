@@ -341,7 +341,12 @@ class ReplayEvaluator:
         if record.features is not None:
             if isinstance(record.features, TrafficFeatures):
                 return record.features
-            return TrafficFeatures(**dict(record.features))
+            values = dict(record.features)
+            return TrafficFeatures(**{
+                name: values[name]
+                for name in TrafficFeatures.__dataclass_fields__
+                if name in values
+            })
         event = record.event
         if isinstance(event, TrafficEvent):
             parsed = event

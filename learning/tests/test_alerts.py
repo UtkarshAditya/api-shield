@@ -2,6 +2,7 @@ import json
 from dataclasses import replace
 
 import pytest
+from admin_api.privacy import pseudonymize
 
 from apishield_learning.alerts import (
     AlertConfig,
@@ -200,6 +201,24 @@ def test_grouping_is_scoped_to_pseudonymous_caller_and_endpoint():
     assert len({first.alert_id, other_caller.alert_id, other_endpoint.alert_id}) == 3
 
 
+def test_alert_grouping_uses_shared_caller_identity_not_internal_baseline_id():
+    service = AlertService()
+    first_features = make_features()
+    second_features = replace(
+        first_features,
+        ts="2026-11-12T10:00:05Z",
+        caller_id="caller_" + "f" * 64,
+        caller_endpoint_key="caller_" + "f" * 64 + ":" + first_features.endpoint_key,
+    )
+
+    first = service.generate_alerts([result()], first_features)[0]
+    second = service.generate_alerts([result()], second_features)[0]
+
+    assert first.caller_id == second.caller_id == first_features.alert_caller_id
+    assert first.alert_id == second.alert_id
+    assert second.repeat_count == 2
+
+
 def test_alert_is_not_deduplicated_after_repeat_window_expires():
     service = AlertService(config=AlertConfig(repeat_window_seconds=60))
     first = service.generate_alerts([result()], make_features())[0]
@@ -271,7 +290,8 @@ def test_privacy_safe_alert_excludes_raw_identifiers_and_payload_like_keys():
     )[0]
     serialized = json.dumps(storage.list_alerts())
 
-    assert alert.caller_id == features.caller_id
+    assert alert.caller_id == features.alert_caller_id
+    assert alert.caller_id == pseudonymize("caller-a", "dev-only-pseudo-salt")
     assert features.caller_id != raw_caller
     assert raw_caller not in serialized
     assert raw_ip not in serialized
@@ -286,8 +306,46 @@ def test_raw_identifiers_cannot_enter_alert_feature_record():
     features = make_features()
     unsafe_features = replace(features, caller_id="caller-a")
 
-    with pytest.raises(ValueError, match="HMAC pseudonyms"):
+    with pytest.raises(ValueError, match="pseudonymous"):
         AlertService().generate_alerts([result()], unsafe_features)
+
+
+def test_shared_id_is_not_substituted_for_internal_baseline_identifier():
+    features = replace(make_features(), caller_id="ip_ca884e30")
+
+    with pytest.raises(ValueError, match="internal feature identifiers"):
+        AlertService().generate_alerts([result()], features)
+
+
+@pytest.mark.parametrize(
+    "caller_id",
+    ["ip_ca884e30", "user_3644e45c", "key_929bf132"],
+)
+def test_shared_admin_caller_pseudonym_formats_are_accepted(caller_id):
+    features = replace(make_features(), alert_caller_id=caller_id)
+
+    alert = AlertService().generate_alerts([result()], features)[0]
+
+    assert alert.caller_id == caller_id
+
+
+@pytest.mark.parametrize(
+    "caller_id",
+    [
+        ("host_ca884e30"),
+        ("ip_ca884e3"),
+        ("user_3644e3000"),
+        ("ip_CA884E30"),
+        ("192.0.2.10"),
+        ("caller-a"),
+        ("key_929bf13g"),
+    ],
+)
+def test_invalid_or_raw_caller_identifiers_are_rejected(caller_id):
+    features = replace(make_features(), alert_caller_id=caller_id)
+
+    with pytest.raises(ValueError, match="shared pseudonym"):
+        AlertService().generate_alerts([result()], features)
 
 
 def test_no_detected_results_create_no_alert_and_unknown_filter_is_rejected():

@@ -22,6 +22,7 @@ _SENSITIVE_KEYS = frozenset(
         "caller_id",
         "caller_id_raw",
         "caller_endpoint_key",
+        "alert_caller_id",
         "ip",
         "ip_id",
         "ip_address",
@@ -222,7 +223,7 @@ class AlertService:
             else self.config.missing_risk_fallback
         )
         grouping_key = _grouping_key(
-            features.caller_id, features.endpoint_key, "traffic_anomaly"
+            features.alert_caller_id, features.endpoint_key, "traffic_anomaly"
         )
         current_timestamp = _normalize_timestamp(features.ts)
         since = _timestamp_minus(
@@ -274,7 +275,7 @@ class AlertService:
             timestamp=previous.timestamp if previous else current_timestamp,
             endpoint=features.path_template,
             method=features.method,
-            caller_id=features.caller_id,
+            caller_id=features.alert_caller_id,
             anomaly_score=anomaly_score,
             endpoint_risk_score=endpoint_risk,
             repeat_factor=repeat_factor,
@@ -392,6 +393,7 @@ def _coerce_features(
             record = TrafficFeatures(**{
                 name: features[name]
                 for name in TrafficFeatures.__dataclass_fields__
+                if name in features
             })
         except (KeyError, TypeError) as exc:
             raise ValueError("feature record does not match TrafficFeatures") from exc
@@ -405,17 +407,37 @@ def _coerce_features(
         or record.endpoint_key != f"{record.method} {record.path_template}"
     ):
         raise ValueError("feature record has an invalid endpoint or method")
-    if not _is_pseudonym(record.caller_id, "caller") or not _is_pseudonym(
+    if not _is_internal_caller_id(record.caller_id) or not _is_pseudonym(
         record.ip_id, "ip"
     ):
-        raise ValueError("feature identifiers must be HMAC pseudonyms")
+        raise ValueError("internal feature identifiers must be pseudonymous")
+    if not _is_shared_caller_id(record.alert_caller_id):
+        raise ValueError("alert caller identifier must use the shared pseudonym format")
     _normalize_timestamp(record.ts)
     return record
 
 
 def _is_pseudonym(value: Any, kind: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    if kind == "caller":
+        return re.fullmatch(
+            r"(?:caller_[0-9a-f]{64}|(?:ip|user|key)_[0-9a-f]{8})",
+            value,
+        ) is not None
+    return re.fullmatch(rf"{kind}_[0-9a-f]{{64}}", value) is not None
+
+
+def _is_internal_caller_id(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"caller_[0-9a-f]{64}", value) is not None
+    )
+
+
+def _is_shared_caller_id(value: Any) -> bool:
     return isinstance(value, str) and re.fullmatch(
-        rf"{kind}_[0-9a-f]{{64}}", value
+        r"(?:ip|user|key)_[0-9a-f]{8}", value
     ) is not None
 
 

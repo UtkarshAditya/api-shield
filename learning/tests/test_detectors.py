@@ -402,13 +402,45 @@ def test_isolation_forest_skips_invalid_nonfinite_and_enforced_samples():
     )
     samples = training_samples(10)
     samples[0] = replace(samples[0], latency_ms=float("inf"))
-    samples[1] = replace(samples[1], rule_hit_count=1)
+    samples[1] = replace(samples[1], rule_hit_count=1, action="log")
     samples[2] = replace(samples[2], action="challenge")
 
     assert detector.fit(samples)
-    assert detector.sample_count == 7
+    assert detector.sample_count == 8
     invalid = replace(samples[3], req_size="invalid")
     assert detector.score(invalid) is None
+
+
+@pytest.mark.parametrize(
+    ("action", "expected_eligible"),
+    [
+        ("allow", True),
+        ("log", True),
+        ("throttle", False),
+        ("challenge", False),
+        ("block", False),
+    ],
+)
+def test_isolation_forest_training_eligibility_by_action(action, expected_eligible):
+    detector = IsolationForestDetector(
+        IsolationForestConfig(min_samples=5, n_estimators=10)
+    )
+    sample = replace(
+        training_samples(1)[0],
+        action=action,
+        rule_hit_count=1,
+    )
+
+    trained = detector.fit([sample] * 5)
+
+    assert trained is expected_eligible
+    assert detector.sample_count == (5 if expected_eligible else 0)
+
+    observer = IsolationForestDetector(
+        IsolationForestConfig(min_samples=5, n_estimators=10)
+    )
+    observer.observe(sample, baseline_ready=True)
+    assert observer.sample_count == (1 if expected_eligible else 0)
 
 
 def test_combined_detection_service_returns_all_detectors_without_io():
