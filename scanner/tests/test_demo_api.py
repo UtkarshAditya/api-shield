@@ -39,3 +39,5 @@ def test_flaw_verbose_error_leaks_trace():
 def test_flaw_profile_leaks_api_key():
     h = {"Authorization": f"Bearer {_token()}"}
     assert "sk_live" in client.get("/profile", headers=h).json()["api_key"]
+
+
