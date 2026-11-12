@@ -49,7 +49,8 @@ scanner against `demo_api` on a free localhost port.
 | `APISHIELD_ADMIN_TOKEN` | empty | Gateway control token. Server-side only: never logged, never returned |
 | `APISHIELD_PSEUDO_SALT` | dev-only salt, with a warning | HMAC key for caller pseudonyms. **Must match the learner (M3)** |
 | `ADMIN_JWT_SECRET` | dev-only secret, with a warning | Signs dashboard sessions (8 h, no refresh) |
-| `DEMO_SEED` | `false` | Demo users, alerts and learning progress |
+| `DEMO_SEED` | `false` | Demo users, alerts and learning progress. Also enables `POST /demo/reset` |
+| `ADMIN_DEMO_ALERTS` | `false` | Every 5 s, turn callers that stand out in recent traffic into alerts marked "demo replay" (stand-in for M3; Compose sets `true`) |
 | `APISHIELD_UPSTREAM_ID` / `_NAME` / `_URL` | `up_shop` / `Demo Shop API` / `http://localhost:8001` | The protected API. The URL is what gets scanned |
 | `APISHIELD_OPENAPI_SPEC` | `demo_api/openapi.json` | Spec for scans and the endpoint inventory |
 | `APISHIELD_SCAN_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts the scanner may target. Compose adds `demo-api` |
@@ -84,6 +85,8 @@ endpoint, and `frontend/src/test/contract.test.ts` parses each one with its sche
 | `POST /findings/:id/apply-rule` | admin, analyst | Pushes the scanner's adapted rule. Sets the finding to `mitigated` only for block, throttle or challenge, not for `log` |
 | `GET /endpoints` | signed in | API map: spec ∪ traffic seen in 24 h, with the shadow flag, auth, rate limit and risk |
 | `GET /audit-log`, `POST /privacy/purge` | admin | Rule, mode, scan, feedback, learning and purge actions are all audited |
+| `POST /demo/alerts/replay` | admin | Demo-replay alerts from the buffered (masked) events, see `demo_alerts.py`. Idempotent: same ids on every run, analyst status kept |
+| `POST /demo/reset` | admin, `DEMO_SEED=true` only | Rehearsal reset used by `scripts/demo_reset.py`: deletes scans, findings, feedback and demo-replay alerts, re-seeds the demo alerts, forgets buffered events |
 
 ## Privacy
 
@@ -100,3 +103,4 @@ endpoint, and `frontend/src/test/contract.test.ts` parses each one with its sche
 - **Alerts:** write rows into `alerts`. Store `caller` already pseudonymized with `admin_api.privacy.pseudonymize`. Set `rank` (1 = most urgent) and optionally `timeline: [{ts, count}]`.
 - **Learning progress:** keep `learning_state` up to date (mode, progress, endpoints and shapes learned). Watch `reset_requested_at`.
 - **Feedback:** consume `alert_feedback` rows where `consumed_at IS NULL`, then set `consumed_at`. Until you own the math, the Admin API reports a placeholder `threshold_delta` of +0.1 on the top reason's feature.
+- **Until you write alerts:** `ADMIN_DEMO_ALERTS=true` makes the Admin API write stand-in alerts (ids `al_demo_*`, explanation ends with "Demo replay: … not by the M3 learner"). They compare each caller with the other callers of the last 15 minutes. Turn the flag off once the learner writes real alerts.

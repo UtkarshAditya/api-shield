@@ -12,7 +12,8 @@ from pathlib import Path
 from .scenario import build, call_everything
 
 SAMPLES = Path(__file__).resolve().parents[2] / "frontend" / "src" / "test" / "contract" / "samples"
-NOT_IN_CONTRACT = {"scan_report_json", "scan_report_html"}  # downloads, not parsed by the UI
+# Downloads, and the demo-replay trigger (scripts and demo_check.py call it, the UI does not).
+NOT_IN_CONTRACT = {"scan_report_json", "scan_report_html", "demo_alerts_replay"}
 
 _ISO = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)?")
 _IDS = re.compile(r"\b(sc|fd|au)_[0-9a-f]{12}\b")

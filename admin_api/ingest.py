@@ -144,6 +144,12 @@ class TrafficIngestor:
     def recent_events(self, upstream_id: str, limit: int) -> list:
         return [e for up, e in list(self.recent) if up == upstream_id][:limit]
 
+    def forget_recent(self, upstream_id: str) -> int:
+        """Drops buffered (in-memory) events for an upstream; stored aggregates are kept."""
+        before = len(self.recent)
+        self.recent = deque(((u, e) for u, e in self.recent if u != upstream_id), maxlen=self.recent.maxlen)
+        return before - len(self.recent)
+
     # ---- retention and purge ----
 
     def apply_retention(self, retention_days: int) -> int:

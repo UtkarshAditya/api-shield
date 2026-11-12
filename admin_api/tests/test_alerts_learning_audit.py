@@ -21,7 +21,7 @@ def test_alerts_ranked_and_filtered(client, as_viewer):
 
 def test_alert_detail_has_timeline(client, as_viewer):
     alert = client.get("/api/alerts/al_1001", headers=as_viewer).json()
-    assert len(alert["timeline"]) == 12 and alert["group_id"] == "grp_9f3a"
+    assert len(alert["timeline"]) == 12 and alert["group_id"] == "grp_929b"
     assert client.get("/api/alerts/al_nope", headers=as_viewer).status_code == 404
 
 
@@ -51,7 +51,7 @@ def test_promote_key_caller_targets_caller(client, as_analyst, gateway):
     resp = client.post(f"/api/alerts/al_1001/promote-to-rule{Q}", json={"action": "block"}, headers=as_analyst)
     assert resp.status_code == 201, resp.text
     rule = resp.json()
-    assert rule["match"] == {"path": "/search", "method": "GET", "condition": "caller == 'key_9f3a1c2e'"}
+    assert rule["match"] == {"path": "/search", "method": "GET", "condition": "caller == 'key_929bf132'"}
     assert gateway.rules["alert-al_1001"]["action"] == "block"
 
 

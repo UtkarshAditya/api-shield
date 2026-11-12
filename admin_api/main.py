@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from . import errors, rules_service, seed
+from . import demo_alerts, errors, rules_service, seed
 from .config import Config
 from .db import Base, make_engine, make_session_factory
 from .gateway_client import GatewayClient
@@ -25,6 +25,7 @@ from .scans import ScanRunner
 log = logging.getLogger("apishield.admin")
 HERE = Path(__file__).resolve().parent
 API_PREFIX = "/api"
+DEMO_ALERT_SECONDS = 5.0
 
 
 def migrate(database_url: str) -> None:
@@ -55,6 +56,15 @@ def create_app(cfg: Config | None = None, *, gateway_transport=None, redis=None,
     ingestor = TrafficIngestor(cfg, session_factory, redis=redis)
     scan_runner = ScanRunner(cfg, session_factory, scan_fn=scan_fn)
 
+    async def _demo_alert_loop() -> None:
+        """ADMIN_DEMO_ALERTS=true: refresh demo-replay alerts every few seconds (stand-in for M3)."""
+        while True:
+            try:
+                await asyncio.to_thread(demo_alerts.run_once, session_factory, ingestor, cfg.upstream_id)
+            except Exception as exc:  # never let the demo helper take the API down
+                log.warning("demo alert replay failed: %s", type(exc).__name__)
+            await asyncio.sleep(DEMO_ALERT_SECONDS)
+
     def retention_days() -> int:
         with session_factory() as session:
             return session.get(SettingsRow, 1).retention_days
@@ -65,6 +75,8 @@ def create_app(cfg: Config | None = None, *, gateway_transport=None, redis=None,
         if run_background:
             tasks.append(asyncio.create_task(ingestor.run(retention_days), name="admin-ingest"))
             tasks.append(asyncio.create_task(rules_service.sync_loop(app), name="admin-gateway-sync"))
+            if cfg.demo_alerts:
+                tasks.append(asyncio.create_task(_demo_alert_loop(), name="admin-demo-alerts"))
         try:
             yield
         finally:

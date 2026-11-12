@@ -55,6 +55,9 @@ services:
       APISHIELD_PSEUDO_SALT: ${APISHIELD_PSEUDO_SALT:-change-me-pseudonymization-salt}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-change-me-admin-jwt-secret-at-least-32-bytes}
       DEMO_SEED: "true"
+      # Stand-in for the learner (M3) until it writes alerts: turns the simulator's attack burst into
+      # ranked, explained alerts marked "demo replay" (admin_api/demo_alerts.py). Set to "false" once M3 is live.
+      ADMIN_DEMO_ALERTS: ${ADMIN_DEMO_ALERTS:-true}
       APISHIELD_UPSTREAM_ID: up_shop
       APISHIELD_UPSTREAM_NAME: Demo Shop API
       APISHIELD_UPSTREAM_URL: http://demo-api:8001

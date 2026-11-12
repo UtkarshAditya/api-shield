@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { openEventStream, request } from "./client";
+import { downloadFile, openEventStream, request } from "./client";
 import {
   Alert,
   AlertFeedbackResponse,
@@ -64,6 +64,8 @@ export const trafficApi = {
       onModeChange,
       poll: async () => (await trafficApi.recent(upstreamId, 50)).items.slice().reverse(),
       keyOf: (e) => e.req_id,
+      pollMs: 2000,
+      preferPolling: import.meta.env.VITE_USE_MOCKS === "true",
     }),
 };
 
@@ -115,6 +117,8 @@ export const scansApi = {
   findings: (id: string) => request(`/scans/${encodeURIComponent(id)}/findings`, { schema: Paged(Finding) }),
   /** For a download link; the report is fetched with the session token by the caller. */
   reportPath: (id: string, format: "json" | "html") => `/scans/${encodeURIComponent(id)}/report?format=${format}`,
+  downloadReport: (id: string, format: "json" | "html") =>
+    downloadFile(scansApi.reportPath(id, format), `apishield-${id}.${format}`),
   applyRule: (findingId: string) =>
     request(`/findings/${encodeURIComponent(findingId)}/apply-rule`, { method: "POST", schema: Finding }),
 };

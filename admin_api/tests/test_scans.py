@@ -201,22 +201,44 @@ def test_apply_rule_pushes_and_mitigates_and_lowers_risk(scan_env, gateway):
         assert s.query(AuditRow).filter_by(action="finding.apply_rule").count() == 1
 
 
-def test_log_only_rule_does_not_mitigate(scan_env, gateway):
+def test_log_only_suggestion_is_not_exported(scan_env, gateway):
+    """The scanner's export_rules() drops rules that downgrade to `log` (they would fire on
+    every request to the path), so such a finding has no suggested rule and nothing to apply."""
     app, client, _ = scan_env
     h = login(client, "analyst")
-    scan_id = _start(client, h).json()["id"]
-    _wait(app, scan_id)
     report = {**FAKE_REPORT, "findings": [{**FAKE_REPORT["findings"][2], "suggested_rule": {
         "id": "rule-mask-debug", "match": {"path": "/debug", "method": "GET"}, "action": "mask_response",
         "source": "scanner"}}]}
     app.state.scan_runner.scan_fn = lambda *a: report
-    scan2 = _start(client, h).json()["id"]
-    _wait(app, scan2)
-    finding = client.get(f"/api/scans/{scan2}/findings", headers=h).json()["items"][0]
-    assert finding["suggested_rule"]["action"] == "log"
+    scan_id = _start(client, h).json()["id"]
+    _wait(app, scan_id)
+    finding = client.get(f"/api/scans/{scan_id}/findings", headers=h).json()["items"][0]
+    assert "suggested_rule" not in finding
     resp = client.post(f"/api/findings/{finding['id']}/apply-rule", headers=h)
+    assert resp.status_code == 409 and resp.json()["error"]["code"] == "no_suggested_rule"
+    assert "rule-mask-debug" not in gateway.rules
+    assert client.get(f"/api/scans/{scan_id}/findings", headers=h).json()["items"][0]["status"] == "open"
+
+
+def test_stored_log_rule_does_not_mitigate(scan_env, gateway):
+    """A `log` suggested rule can still exist in the database (findings stored before the
+    scanner stopped exporting them, or written directly). MITIGATING_ACTIONS keeps it open."""
+    from admin_api.models import FindingRow
+    app, client, _ = scan_env
+    h = login(client, "analyst")
+    scan_id = _start(client, h).json()["id"]
+    _wait(app, scan_id)
+    with app.state.session_factory() as s:
+        s.add(FindingRow(id="fd_legacylog", scan_id=scan_id, upstream_id="up_shop", scanner_id="secrets-debug",
+                         endpoint="/debug", method="GET", owasp_cat="API8:2023", title="Secrets in response",
+                         severity="low", risk_score=3.6, evidence={"request": "GET /debug", "response": "—"},
+                         suggested_rule={"id": "rule-log-debug", "name": "rule log debug", "enabled": True,
+                                         "match": {"path": "/debug", "method": "GET"}, "action": "log",
+                                         "source": "scanner", "priority": 100}))
+        s.commit()
+    resp = client.post("/api/findings/fd_legacylog/apply-rule", headers=h)
     assert resp.status_code == 200 and resp.json()["status"] == "open"
-    assert gateway.rules["rule-mask-debug"]["action"] == "log"
+    assert gateway.rules["rule-log-debug"]["action"] == "log"
 
 
 def test_apply_rule_with_gateway_down_keeps_finding_open(scan_env, gateway):

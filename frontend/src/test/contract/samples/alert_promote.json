@@ -6,7 +6,7 @@
   "hits_24h": 0,
   "id": "alert-al_1001",
   "match": {
-    "condition": "caller == 'key_9f3a1c2e'",
+    "condition": "caller == 'key_929bf132'",
     "method": "GET",
     "path": "/search"
   },
