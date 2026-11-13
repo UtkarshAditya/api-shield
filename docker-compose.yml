@@ -7,6 +7,8 @@ name: apishield
 x-secrets: &secrets
   APISHIELD_ADMIN_TOKEN: ${APISHIELD_ADMIN_TOKEN:-change-me-gateway-admin-token}
 
+x-admin-db: &admin-db postgresql+psycopg://apishield:${POSTGRES_PASSWORD:-change-me-postgres}@postgres:5432/apishield
+
 services:
   redis:
     image: redis:7-alpine
@@ -49,15 +51,17 @@ services:
     build: {context: ., dockerfile: admin_api/Dockerfile}
     environment:
       <<: *secrets
-      ADMIN_DATABASE_URL: postgresql+psycopg://apishield:${POSTGRES_PASSWORD:-change-me-postgres}@postgres:5432/apishield
+      ADMIN_DATABASE_URL: *admin-db
       APISHIELD_REDIS_URL: redis://redis:6379/0
       APISHIELD_GATEWAY_URL: http://gateway:8080
       APISHIELD_PSEUDO_SALT: ${APISHIELD_PSEUDO_SALT:-change-me-pseudonymization-salt}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-change-me-admin-jwt-secret-at-least-32-bytes}
       DEMO_SEED: "true"
-      # Stand-in for the learner (M3) until it writes alerts: turns the simulator's attack burst into
-      # ranked, explained alerts marked "demo replay" (admin_api/demo_alerts.py). Set to "false" once M3 is live.
-      ADMIN_DEMO_ALERTS: ${ADMIN_DEMO_ALERTS:-true}
+      # Alerts come from the learner (M3, service `learning` below). Fallback switch: ADMIN_DEMO_ALERTS=true
+      # brings back the Admin API's "demo replay" alerts (admin_api/demo_alerts.py); also set
+      # ADMIN_SEED_ALERTS=true for the canned story alerts. See docs/DEMO.md.
+      ADMIN_DEMO_ALERTS: ${ADMIN_DEMO_ALERTS:-false}
+      ADMIN_SEED_ALERTS: ${ADMIN_SEED_ALERTS:-false}
       APISHIELD_UPSTREAM_ID: up_shop
       APISHIELD_UPSTREAM_NAME: Demo Shop API
       APISHIELD_UPSTREAM_URL: http://demo-api:8001
@@ -69,6 +73,9 @@ services:
       redis: {condition: service_healthy}
       gateway: {condition: service_started}
 
+  # The learner (M3): reads the gateway's events, learns baselines, writes alerts and learning
+  # progress into the Admin database (learning/apishield_learning/live.py). It waits for the
+  # Admin API to create the tables.
   learning:
     build: {context: ., dockerfile: learning/Dockerfile}
     environment:
@@ -76,8 +83,23 @@ services:
       APISHIELD_EVENT_STREAM: apishield:traffic
       APISHIELD_LEARNING_CONSUMER_GROUP: learner
       APISHIELD_PSEUDO_SALT: ${APISHIELD_PSEUDO_SALT:-change-me-pseudonymization-salt}
+      ADMIN_DATABASE_URL: *admin-db
+      APISHIELD_UPSTREAM_ID: up_shop
+      # Demo warm-up profile, measured with scripts/simulate_traffic.py (docs/DEMO.md): about 70 s
+      # of normal traffic brings /search, /comments and /login to active. Code defaults are
+      # 3600 s / 30 observations (production).
+      APISHIELD_LEARNING_WARMUP_SECONDS: ${APISHIELD_LEARNING_WARMUP_SECONDS:-30}
+      APISHIELD_LEARNING_MIN_OBSERVATIONS: ${APISHIELD_LEARNING_MIN_OBSERVATIONS:-8}
+      APISHIELD_LEARNING_ALERT_DURING_WARMUP: "false"
+      # Laptop demo: localhost latency jitter (sd ~2 ms) is not a signal, so the latency z threshold
+      # is 9 instead of 3. Isolation Forest is off: trained on ~100 demo samples it flags ~5 % of
+      # normal requests (measured). Both are on/at defaults when these are unset.
+      APISHIELD_LEARNING_THRESHOLD_MULTIPLIERS: ${APISHIELD_LEARNING_THRESHOLD_MULTIPLIERS:-latency=3}
+      APISHIELD_LEARNING_ISOLATION_FOREST: ${APISHIELD_LEARNING_ISOLATION_FOREST:-false}
     depends_on:
       redis: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+      admin-api: {condition: service_started}
     restart: unless-stopped
 
 volumes:

@@ -1,8 +1,5 @@
 {
-  "adjustment": {
-    "feature": "Request rate",
-    "threshold_delta": 0.1
-  },
+  "adjustment": null,
   "alert": {
     "caller": "ip_f5d5cd94",
     "endpoint": "GET /search",

@@ -33,6 +33,7 @@ class Config:
     token_ttl_hours: int = 8
     demo_seed: bool = False
     demo_alerts: bool = False                   # demo-replay alerts from recent traffic (see demo_alerts.py)
+    seed_alerts: bool = True                    # with demo_seed: canned alerts + learning progress (seed.py)
     auto_migrate: bool = True
 
     # The gateway protects one upstream; its events carry no upstream id, so they all go here.
@@ -66,6 +67,7 @@ class Config:
             token_ttl_hours=int(e("ADMIN_TOKEN_TTL_HOURS", "8")),
             demo_seed=_bool("DEMO_SEED", False),
             demo_alerts=_bool("ADMIN_DEMO_ALERTS", False),
+            seed_alerts=_bool("ADMIN_SEED_ALERTS", True),
             auto_migrate=_bool("ADMIN_AUTO_MIGRATE", True),
             upstream_id=e("APISHIELD_UPSTREAM_ID", cls.upstream_id),
             upstream_name=e("APISHIELD_UPSTREAM_NAME", cls.upstream_name),

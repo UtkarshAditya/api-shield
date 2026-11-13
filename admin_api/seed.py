@@ -47,6 +47,9 @@ def seed_demo(session: Session, cfg: Config) -> None:
         session.add_all(User(id=i, email=e, name=n, role=r, password_hash=hashed) for i, e, n, r in DEMO_USERS)
 
     up = cfg.upstream_id
+    if not cfg.seed_alerts:  # the learner (M3) writes real alerts and learning progress
+        session.commit()
+        return
     learning = session.get(LearningState, up)
     if learning is not None and learning.endpoints_learned == 0 and learning.progress == 0:
         now = utcnow()

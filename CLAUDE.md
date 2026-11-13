@@ -16,7 +16,7 @@ Each team member builds their part in parallel. In the repo so far:
 - `frontend/`: the dashboard. It runs against an in-browser mock of the Admin API (`VITE_USE_MOCKS=true`) or the real one.
 - `demo_api/`: the vulnerable demo target.
 
-The learner (M3) is not in the repo yet; it will share the `alerts`, `learning_state` and `alert_feedback` tables.
+- `learning/` (M3): the learner. `python -m apishield_learning` (live mode, `live.py`) writes alerts and learning progress into the Admin database (`alerts`, `learning_state`, `alert_feedback`, its own `learner_baselines`). `ADMIN_DEMO_ALERTS=true` is the replay fallback (see `docs/DEMO.md`).
 
 **User preference:** do not run git commands in this repo.
 
@@ -30,6 +30,7 @@ The learner (M3) is not in the repo yet; it will share the `alerts`, `learning_s
 python scripts/simulate_traffic.py                 # demo traffic + attack burst through the gateway
 python scripts/demo_check.py                       # whole demo flow against a running stack, PASS/FAIL per step
 python scripts/demo_reset.py                       # back to the demo's starting state (needs DEMO_SEED=true)
+python scripts/demo_warmup.py                      # normal traffic until the learner reports active
 docker compose up --build                          # whole stack (cp .env.example .env first)
 ```
 

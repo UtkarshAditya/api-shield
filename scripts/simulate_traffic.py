@@ -7,8 +7,9 @@ burst from a third. Run from the repo root:
     python scripts/simulate_traffic.py --gateway http://localhost:8080 --rps 8
 
 Normal traffic keeps each key under the gateway's `login` limit (5 POST /login per minute per
-caller, gateway/gateway.yaml): at most --login-per-min logins per key per rolling minute, the
-rest of the would-be logins become searches. So normal traffic never sees a 429.
+caller, gateway/gateway.yaml): at most --login-per-min logins per key per rolling minute (2 by
+default, so two runs started back to back still stay under 5), the rest of the would-be logins
+become searches. So normal traffic never hits the limit: no 429, no rule hit for the learner.
 
 The burst (from key-mallory) is: SQLi / traversal / XSS / scanner User-Agent / /debug probes,
 an unauthenticated GET /admin/stats with NO X-API-Key header (401 when the gateway enforces
@@ -76,9 +77,10 @@ def normal_request(client: httpx.Client, rng: random.Random, logins: LoginBudget
 
 
 def run_normal(client: httpx.Client, seconds: float, rps: float, rng: random.Random,
-               login_per_min: int = 3) -> Counter:
+               login_per_min: int = 2, logins: LoginBudget | None = None) -> Counter:
+    """Pass the same `logins` budget to consecutive calls so the per-minute cap holds across them."""
     counts: Counter = Counter()
-    logins = LoginBudget(login_per_min)
+    logins = logins or LoginBudget(login_per_min)
     end = time.monotonic() + seconds
     while time.monotonic() < end:
         counts[normal_request(client, rng, logins).status_code] += 1
@@ -108,7 +110,7 @@ def main() -> int:
     parser.add_argument("--rps", type=float, default=5, help="average normal requests per second")
     parser.add_argument("--rounds", type=int, default=5, help="times the attack list is repeated")
     parser.add_argument("--brute-force", type=int, default=30, help="failed /login attempts in the burst")
-    parser.add_argument("--login-per-min", type=int, default=3,
+    parser.add_argument("--login-per-min", type=int, default=2,
                         help="max normal logins per key per minute (keep below the gateway's 5)")
     parser.add_argument("--burst-only", action="store_true", help="skip normal traffic")
     parser.add_argument("--no-burst", action="store_true", help="normal traffic only")

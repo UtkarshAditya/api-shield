@@ -2,11 +2,18 @@
 
     python scripts/demo_reset.py && python scripts/demo_check.py
     python scripts/demo_check.py --admin http://localhost:8000 --gateway http://localhost:8080 --normal 20
+    python scripts/demo_check.py --alerts-from replay     # the Admin API's stand-in (ADMIN_DEMO_ALERTS=true)
 
 It starts nothing. Steps: login, normal traffic through the gateway (scripts/simulate_traffic.py),
-metrics > 0 with masked callers, scan finishes, apply suggested rules, switch to ENFORCE,
-SQL injection gets 403, no-auth /admin/stats gets 401, /login is throttled with 429, the attack
-burst produces a demo-replay alert for the attacker, learning status is readable.
+metrics > 0 with masked callers, learner warm-up (scripts/demo_warmup.py), scan finishes, apply
+suggested rules, switch to ENFORCE, SQL injection gets 403, no-auth /admin/stats gets 401, /login
+is throttled with 429, the attack burst produces an alert for the attacker from the chosen
+source, learning status is readable.
+
+--alerts-from: `learner` (default unless ADMIN_DEMO_ALERTS=true in this shell) accepts only alerts
+written by the M3 learner (not an `al_demo_` replay id, not a canned `al_100x` seed, and an
+explanation carrying the "(Learner:" marker); `replay` accepts only `al_demo_` alerts; `any`
+accepts either. With `learner` the warm-up step must reach "active".
 
 It changes the stack (rules applied, ENFORCE on): run scripts/demo_reset.py afterwards.
 Exit code 0 only when every step passed.
@@ -17,6 +24,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import random
 import re
 import sys
@@ -30,11 +38,28 @@ PSEUDONYM = re.compile(r"^(key|ip|user)_[0-9a-f]{8}$")
 RAW_IP = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
-def load_simulator():
-    spec = importlib.util.spec_from_file_location("simulate_traffic", HERE / "simulate_traffic.py")
+CANNED = re.compile(r"^al_\d+$")  # seeded story alerts (admin_api/seed.py)
+
+
+def load_module(name: str):
+    spec = importlib.util.spec_from_file_location(name, HERE / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_simulator():
+    return load_module("simulate_traffic")
+
+
+def alert_source(alert: dict) -> str:
+    if not alert:
+        return "none"
+    if alert["id"].startswith("al_demo_"):
+        return "replay"
+    if CANNED.match(alert["id"]):
+        return "seed"
+    return "learner" if "(Learner:" in alert.get("explanation", "") else "unknown"
 
 
 class Check:
@@ -66,7 +91,13 @@ def main() -> int:
     parser.add_argument("--upstream", default="up_shop")
     parser.add_argument("--normal", type=float, default=20, help="seconds of normal traffic")
     parser.add_argument("--scan-timeout", type=float, default=180)
+    parser.add_argument("--warmup-timeout", type=float, default=180)
+    replay_default = os.environ.get("ADMIN_DEMO_ALERTS", "false").strip().lower() in ("1", "true", "yes", "on")
+    parser.add_argument("--alerts-from", choices=("learner", "replay", "any"),
+                        default="replay" if replay_default else "learner",
+                        help="which alert source counts (default: learner unless ADMIN_DEMO_ALERTS=true)")
     args = parser.parse_args()
+    print(f"alerts from: {args.alerts_from}")
 
     sim = load_simulator()
     c = Check()
@@ -108,6 +139,17 @@ def main() -> int:
         raw = RAW_IP.findall(recent.text)
         c.step("callers are masked", bool(callers) and all(PSEUDONYM.match(x) for x in callers | ips) and not raw,
                f"{len(callers)} callers, e.g. {sorted(callers)[:3]}" + (f"; raw IPs seen: {raw[:3]}" if raw else ""))
+
+        # 3b. learner warm-up (normal traffic until GET /learning/status says active)
+        warmup = load_module("demo_warmup")
+        ok, status, seconds = warmup.warm_up(api, gw, args.upstream, timeout=args.warmup_timeout,
+                                             out=lambda line, **kw: print("    " + line.strip(), **kw))
+        if args.alerts_from == "learner":
+            c.step("learner warm-up done", ok, f"{status.get('mode')} after {seconds:.0f}s, "
+                   f"{status.get('endpoints_learned')} endpoints, {status.get('shapes_learned')} shapes")
+        else:
+            print(f"      warm-up: {status.get('mode')} after {seconds:.0f}s (not required for --alerts-from "
+                  f"{args.alerts_from})")
 
         # 4. scan
         resp = api.post("/scans", json={"upstream_id": args.upstream, "consent": True, "safe_mode": True})
@@ -155,19 +197,26 @@ def main() -> int:
         burst = sim.run_burst(gw, rounds=2, brute_force=10)
         print(f"      burst: {dict(sorted(burst.items()))}")
 
-        def demo_alerts():
+        wanted = {"learner": ("learner",), "replay": ("replay",), "any": ("learner", "replay")}[args.alerts_from]
+
+        def attacker_alerts():
             items = api.get("/alerts", params={**q, "status": "active", "sort": "rank", "limit": 200}).json()["items"]
-            return [a for a in items if a["caller"] == attacker and a["id"].startswith("al_demo_")]
-        found = wait_for(demo_alerts, timeout=15)
-        how = "background replay (ADMIN_DEMO_ALERTS=true)"
-        if not found:
+            return [a for a in items if a["caller"] == attacker and alert_source(a) in wanted]
+        found = wait_for(attacker_alerts, timeout=20)
+        how = {"learner": "M3 learner", "replay": "background replay (ADMIN_DEMO_ALERTS=true)",
+               "any": "learner or replay"}[args.alerts_from]
+        if not found and args.alerts_from != "learner":
             r = api.post("/demo/alerts/replay", params=q)
             how = f"triggered POST /demo/alerts/replay -> {r.status_code}"
-            found = demo_alerts()
+            found = attacker_alerts()
         top = found[0] if found else {}
         c.step("alert for the attacker", bool(found) and bool(top.get("reasons")) and bool(top.get("explanation")),
                f"{len(found)} alert(s) for {attacker} via {how}; top #{top.get('rank')} {top.get('severity')} "
-               f"{top.get('endpoint')}" if found else f"none for {attacker} ({how})")
+               f"{top.get('endpoint')} score {top.get('score')} id {top.get('id')} [{alert_source(top)}]"
+               if found else f"none for {attacker} ({how})")
+        if found:
+            print(f"      reasons: {[r['feature'] for r in top['reasons']]}")
+            print(f"      explanation: {top['explanation']}")
         leaked = RAW_IP.findall(json.dumps(found))
         c.step("alerts carry no raw IPs", not leaked, f"found {leaked[:3]}" if leaked else "")
 

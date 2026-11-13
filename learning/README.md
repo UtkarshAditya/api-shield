@@ -50,6 +50,41 @@ baselines, detecting anomalies, and producing explainable alerts.
   feature, baseline, detector, and alert components, then emits a JSON
   evaluation and measured per-stage latency report.
 
+## Live mode (alerts in the dashboard)
+
+`python -m apishield_learning` runs the live learner (`live.py`); `--stdout` keeps the
+earlier development consumer that only prints feature records. Per record it does what
+`ReplayEvaluator.evaluate` does (baselines -> detectors -> alerts -> trusted baseline
+update -> Isolation Forest sample), and persists through `SqlLearningStorage`
+(`sql_storage.py`) into the Admin API's database: `alerts` (mapped by
+`alert_mapping.py`: human reasons, a plain-language explanation ending in
+"(Learner: ...)", 15 s timeline buckets), `learning_state`, `alert_feedback`
+(consumed), and its own `learner_baselines` table (buffered snapshot writes, every 5 s
+and on shutdown). It reads the latest finished scan's `endpoint_risk` as M2 endpoint
+risk. Detector, baseline, alert and feedback logic are unchanged; see the module
+docstring of `live.py` for how sensitivity, analyst feedback and reset are applied.
+
+```bash
+# from the repo root, with the Admin API running against the same database
+PYTHONPATH=learning ADMIN_DATABASE_URL=sqlite:///./admin_api.db APISHIELD_PSEUDO_SALT=...   APISHIELD_REDIS_URL=redis://localhost:6379/0 python -m apishield_learning
+```
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ADMIN_DATABASE_URL` | `sqlite:///./admin_api.db` | The Admin API's database (Postgres in Compose). SQLite gets WAL + busy timeout |
+| `APISHIELD_UPSTREAM_ID` | `up_shop` | Upstream the alerts belong to |
+| `APISHIELD_LEARNING_ISOLATION_FOREST` | `true` | Add the Isolation Forest detector |
+| `APISHIELD_LEARNING_IF_MIN_SAMPLES` | `100` | Training samples before it scores |
+| `APISHIELD_LEARNING_DETECTOR_MIN_SAMPLES` | `5` | `DetectorConfig.min_samples` |
+| `APISHIELD_LEARNING_THRESHOLD_MULTIPLIERS` | empty | e.g. `latency=3`: scale single numeric detectors' thresholds |
+| `APISHIELD_LEARNING_ALERT_DURING_WARMUP` | `true` | `false`: no alerts until warm-up is done |
+| `APISHIELD_LEARNING_MAX_EVENT_AGE_SECONDS` | `300` | Older events (stream history) train but never alert |
+| `APISHIELD_LEARNING_STATE_SECONDS` / `_FLUSH_SECONDS` / `_RISK_CACHE_SECONDS` | `2` / `5` / `30` | Housekeeping, baseline flush and risk cache intervals |
+
+The baseline variables (`APISHIELD_LEARNING_WARMUP_SECONDS`, `_MIN_OBSERVATIONS`, ...)
+are read by `BaselineConfig.from_env()` as before. `docker-compose.yml` sets the demo
+profile; `docs/DEMO.md` lists it with the measurements.
+
 The in-process M3 flow is:
 
 ```text

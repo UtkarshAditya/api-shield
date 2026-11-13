@@ -1,7 +1,12 @@
-"""Run a development consumer that writes safe feature records to stdout."""
+"""Run the learner.
+
+    python -m apishield_learning            # live: baselines + detectors -> alerts in the Admin DB (live.py)
+    python -m apishield_learning --stdout   # development consumer: safe feature records to stdout
+"""
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import json
 import logging
@@ -23,10 +28,19 @@ async def _run() -> None:
     await consumer.run(write_to_stdout)
 
 
-def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="APIShield learner (M3)")
+    parser.add_argument("--stdout", action="store_true",
+                        help="only print safe feature records (the earlier development mode)")
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
-        asyncio.run(_run())
+        if args.stdout:
+            asyncio.run(_run())
+        else:
+            from .live import run_live
+
+            asyncio.run(run_live())
     except KeyboardInterrupt:
         pass
 

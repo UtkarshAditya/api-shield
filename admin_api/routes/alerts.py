@@ -21,8 +21,10 @@ from ..rules_service import hits_24h, row_view, save_rule
 
 router = APIRouter()
 ALERT_STATUSES = ("new", "acknowledged", "true_positive", "false_positive")
-# CONTRACT-TBD (M3, Q14): placeholder until the learner owns threshold math. The learner reads
-# alert_feedback rows and applies its own adjustment; this is what the UI shows meanwhile.
+# What the learner (M3) applies on a false positive: the reason's detector threshold goes up by
+# FeedbackAnalysisConfig.suggested_threshold_increase (+10 %). It writes the delta it actually
+# applied back to alert_feedback.threshold_delta (0.0 for signals it cannot tune, e.g. rule hits),
+# so an adjustment is promised only for reasons that carry a z-score (a numeric threshold).
 FALSE_POSITIVE_DELTA = 0.1
 
 
@@ -75,11 +77,12 @@ class AlertPatch(BaseModel):
     status: Literal["new", "acknowledged", "true_positive", "false_positive"]
 
 
-def _top_feature(row: AlertRow) -> str:
-    reasons = row.reasons or []
-    if not reasons:
-        return "score"
-    return max(reasons, key=lambda r: r.get("z") or 0).get("feature", "score")
+def _top_feature(row: AlertRow) -> str | None:
+    """The reason with the highest z-score, or None when no reason has one (nothing to tune)."""
+    scored = [r for r in (row.reasons or []) if isinstance(r.get("z"), (int, float)) and r.get("feature")]
+    if not scored:
+        return None
+    return max(scored, key=lambda r: r["z"])["feature"]
 
 
 @router.patch("/alerts/{alert_id}")
@@ -90,9 +93,10 @@ def patch_alert(alert_id: str, body: AlertPatch, session: Session = Depends(get_
     adjustment = None
     if body.status in ("true_positive", "false_positive"):
         feedback = AlertFeedback(alert_id=row.id, verdict=body.status, created_by=user.email)
-        if body.status == "false_positive":
-            adjustment = {"feature": _top_feature(row), "threshold_delta": FALSE_POSITIVE_DELTA}
-            feedback.feature, feedback.threshold_delta = adjustment["feature"], adjustment["threshold_delta"]
+        feature = _top_feature(row) if body.status == "false_positive" else None
+        if feature:
+            adjustment = {"feature": feature, "threshold_delta": FALSE_POSITIVE_DELTA}
+            feedback.feature, feedback.threshold_delta = feature, FALSE_POSITIVE_DELTA
         session.add(feedback)
     audit.record(session, user.email, "alert.feedback", "alert", row.id, **{"from": previous, "to": body.status})
     session.commit()

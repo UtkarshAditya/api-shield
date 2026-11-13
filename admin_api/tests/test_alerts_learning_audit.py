@@ -91,3 +91,20 @@ def test_purge_deletes_traffic_and_is_audited(client, as_admin, as_analyst, app)
     summary = client.get(f"/api/metrics/summary{Q}&range=1h", headers=as_admin).json()
     assert summary["requests"] == 0
     assert client.get("/api/audit-log?action=data.purge", headers=as_admin).json()["total"] == 1
+
+
+def test_false_positive_without_a_scored_reason_promises_no_adjustment(client, as_analyst, app):
+    """Signal-only alerts (e.g. the learner's "Rule hits / blocked") have no threshold to raise."""
+    from datetime import datetime, timezone
+    from admin_api.models import AlertFeedback, AlertRow
+    with app.state.session_factory() as s:
+        s.add(AlertRow(id="learner-signal-only", upstream_id="up_shop", ts=datetime.now(timezone.utc),
+                       caller="key_929bf132", endpoint="GET /debug", score=0.3, rank=9, severity="low", status="new",
+                       reasons=[{"feature": "Rule hits / blocked", "observed": "1 rule hit(s), action block",
+                                 "baseline": "no rule hits, allowed"}], explanation="x (Learner: ...)"))
+        s.commit()
+    body = client.patch("/api/alerts/learner-signal-only", json={"status": "false_positive"}, headers=as_analyst).json()
+    assert body["adjustment"] is None and body["alert"]["status"] == "false_positive"
+    with app.state.session_factory() as s:
+        fb = s.query(AlertFeedback).filter_by(alert_id="learner-signal-only").one()
+        assert fb.verdict == "false_positive" and fb.feature is None and fb.consumed_at is None

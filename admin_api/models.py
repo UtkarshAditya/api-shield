@@ -127,6 +127,16 @@ class LearningState(Base):
     reset_requested_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
 
+class LearnerBaseline(Base):
+    """Written only by the learner (M3): its baseline snapshot (pseudonymous keys, counts and
+    statistics, never payloads) plus its threshold tuning, so a restart does not redo warm-up."""
+    __tablename__ = "learner_baselines"
+    upstream_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    snapshot: Mapped[dict] = mapped_column(JSON, default=dict)
+    tuning: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
 class AlertFeedback(Base):
     __tablename__ = "alert_feedback"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

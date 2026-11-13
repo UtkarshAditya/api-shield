@@ -151,3 +151,37 @@ def test_demo_reset_is_admin_only_and_demo_only(gateway, client, as_analyst):
         tok = c.post("/api/auth/login", json={"email": "root@example.com", "password": "pw"}).json()["token"]
         resp = c.post(f"/api/demo/reset{Q}", headers={"Authorization": f"Bearer {tok}"})
     assert resp.status_code == 409 and resp.json()["error"]["code"] == "demo_only"
+
+
+def test_learner_mode_seeds_nothing_and_reset_keeps_the_baseline(gateway):
+    """ADMIN_SEED_ALERTS=false (learner on): no canned alerts or fake learning progress; the
+    reset clears learner alerts and their feedback but keeps learner_baselines and learning_state."""
+    import httpx
+    from datetime import datetime, timezone
+    from fastapi.testclient import TestClient
+    from admin_api.main import create_app
+    from admin_api.models import AlertFeedback, AlertRow, LearnerBaseline, LearningState
+    from .conftest import login, make_config
+    app = create_app(make_config(seed_alerts=False), gateway_transport=httpx.MockTransport(gateway.handler),
+                     run_background=False)
+    with TestClient(app) as c:
+        admin = login(c, "admin")
+        assert c.get(f"/api/alerts{Q}", headers=admin).json()["total"] == 0
+        assert c.get(f"/api/learning/status{Q}", headers=admin).json()["endpoints_learned"] == 0
+        now = datetime.now(timezone.utc)
+        with app.state.session_factory() as s:
+            s.add(AlertRow(id="3f1c-learner-uuid", upstream_id="up_shop", ts=now, caller="key_929bf132",
+                           endpoint="POST /login", score=0.8, rank=1, severity="high", status="new",
+                           reasons=[], explanation="... (Learner: priority 0.80 ...)"))
+            s.add(AlertFeedback(alert_id="3f1c-learner-uuid", verdict="false_positive", created_by="a@x"))
+            s.add(LearnerBaseline(upstream_id="up_shop", snapshot={"version": 1}, tuning={}, updated_at=now))
+            row = s.get(LearningState, "up_shop")
+            row.mode, row.progress, row.endpoints_learned = "active", 1.0, 3
+            s.commit()
+        body = c.post(f"/api/demo/reset{Q}", headers=admin).json()
+        assert (body["alerts_removed"], body["feedback"], body["alerts_seeded"]) == (1, 1, 0)
+        assert c.get(f"/api/alerts{Q}", headers=admin).json()["total"] == 0
+        status = c.get(f"/api/learning/status{Q}", headers=admin).json()
+        assert (status["mode"], status["endpoints_learned"]) == ("active", 3)
+        with app.state.session_factory() as s:
+            assert s.get(LearnerBaseline, "up_shop").snapshot == {"version": 1}

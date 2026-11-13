@@ -50,7 +50,8 @@ scanner against `demo_api` on a free localhost port.
 | `APISHIELD_PSEUDO_SALT` | dev-only salt, with a warning | HMAC key for caller pseudonyms. **Must match the learner (M3)** |
 | `ADMIN_JWT_SECRET` | dev-only secret, with a warning | Signs dashboard sessions (8 h, no refresh) |
 | `DEMO_SEED` | `false` | Demo users, alerts and learning progress. Also enables `POST /demo/reset` |
-| `ADMIN_DEMO_ALERTS` | `false` | Every 5 s, turn callers that stand out in recent traffic into alerts marked "demo replay" (stand-in for M3; Compose sets `true`) |
+| `ADMIN_DEMO_ALERTS` | `false` | Every 5 s, turn callers that stand out in recent traffic into alerts marked "demo replay" (fallback for the M3 learner; Compose default `false`) |
+| `ADMIN_SEED_ALERTS` | `true` | With `DEMO_SEED`: canned story alerts (`al_100x`) and fake learning progress. Compose sets `false`, so they are not mixed with the learner's real alerts |
 | `APISHIELD_UPSTREAM_ID` / `_NAME` / `_URL` | `up_shop` / `Demo Shop API` / `http://localhost:8001` | The protected API. The URL is what gets scanned |
 | `APISHIELD_OPENAPI_SPEC` | `demo_api/openapi.json` | Spec for scans and the endpoint inventory |
 | `APISHIELD_SCAN_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts the scanner may target. Compose adds `demo-api` |
@@ -100,7 +101,10 @@ endpoint, and `frontend/src/test/contract.test.ts` parses each one with its sche
 ## For M3 (learner)
 
 - **Reading traffic:** read `apishield:traffic` with your own group, `learner`.
-- **Alerts:** write rows into `alerts`. Store `caller` already pseudonymized with `admin_api.privacy.pseudonymize`. Set `rank` (1 = most urgent) and optionally `timeline: [{ts, count}]`.
-- **Learning progress:** keep `learning_state` up to date (mode, progress, endpoints and shapes learned). Watch `reset_requested_at`.
-- **Feedback:** consume `alert_feedback` rows where `consumed_at IS NULL`, then set `consumed_at`. Until you own the math, the Admin API reports a placeholder `threshold_delta` of +0.1 on the top reason's feature.
-- **Until you write alerts:** `ADMIN_DEMO_ALERTS=true` makes the Admin API write stand-in alerts (ids `al_demo_*`, explanation ends with "Demo replay: … not by the M3 learner"). They compare each caller with the other callers of the last 15 minutes. Turn the flag off once the learner writes real alerts.
+The live learner (`learning/apishield_learning/live.py`, `sql_storage.py`) does all of this today:
+
+- **Alerts:** rows in `alerts`, id = the learner's alert UUID, `caller` pseudonymized with `admin_api.privacy.pseudonymize`, `rank` recomputed for the upstream after each write (same order as `demo_alerts.upsert`), `timeline: [{ts, count}]` in 15 s buckets. It never writes `status` after insert; `true_positive`/`false_positive` end the incident on its side. Info-level alerts are not written.
+- **Learning progress:** `learning_state` mode/progress/endpoints/shapes/started_at/ends_at. It never writes `sensitivity` or `reset_requested_at`, and keeps an Admin-set `disabled` (it then keeps learning but writes no alerts). It handles `reset_requested_at` once.
+- **Feedback:** it consumes `alert_feedback` rows (`consumed_at`) and writes back the `threshold_delta` it applied: +0.1 (+10 %) for a numeric detector, 0.0 for signals. `PATCH /alerts/:id` promises an adjustment only for reasons with a z-score.
+- **Its own table:** `learner_baselines` (migration 0002): baseline snapshot and threshold tuning, so a restart or `POST /demo/reset` does not redo warm-up.
+- **Fallback:** `ADMIN_DEMO_ALERTS=true` makes the Admin API write stand-in alerts (ids `al_demo_*`, explanation ends with "Demo replay: … not by the M3 learner"). See `docs/DEMO.md` for switching.
