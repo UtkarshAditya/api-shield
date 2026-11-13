@@ -1,6 +1,7 @@
 import * as RT from "@radix-ui/react-tooltip";
 import type { ReactNode } from "react";
 
+/** Ink tooltip. Radix shows it on hover and on keyboard focus of the trigger. */
 export function Tooltip({ content, children, side = "top" }: { content: ReactNode; children: ReactNode; side?: RT.TooltipContentProps["side"] }) {
   return (
     <RT.Root>
@@ -9,10 +10,10 @@ export function Tooltip({ content, children, side = "top" }: { content: ReactNod
         <RT.Content
           side={side}
           sideOffset={6}
-          className="z-50 max-w-xs rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs leading-relaxed text-fg shadow-xl"
+          collisionPadding={8}
+          className="z-50 max-w-xs rounded-sm bg-fg px-2.5 py-1.5 text-xs leading-relaxed text-bg"
         >
           {content}
-          <RT.Arrow className="fill-[var(--surface-2)]" />
         </RT.Content>
       </RT.Portal>
     </RT.Root>

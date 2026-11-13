@@ -1,17 +1,17 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Bell, Check, CircleSlash, Eye, SlidersHorizontal, ThumbsUp } from "lucide-react";
 import { useAlert, useAlerts, useAlertStatus, usePromoteAlert } from "@/api/queries";
 import type { Alert, AlertFeedbackResponse, Rule } from "@/api/schemas";
 import { useWorkspace } from "@/app/WorkspaceContext";
 import { useAuth } from "@/auth/AuthContext";
 import { EmptyState } from "@/components/domain/EmptyState";
 import { CallerId } from "@/components/domain/MaskedValue";
-import { SeverityBadge } from "@/components/domain/SeverityBadge";
-import { WhyTooltip } from "@/components/domain/WhyTooltip";
+import { SeverityMark, severityEdge } from "@/components/domain/SeverityBadge";
+import { Term } from "@/components/domain/Term";
 import { Button } from "@/components/ui/Button";
-import { Card, CardError } from "@/components/ui/Card";
+import { CardError } from "@/components/ui/Card";
 import { ConfirmDialog, InlineError } from "@/components/ui/Dialog";
+import { PageHeader } from "@/components/ui/Primitives";
 import { Segmented } from "@/components/ui/Segmented";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { describeError } from "@/lib/errors";
@@ -25,24 +25,8 @@ const statusLabel: Record<Alert["status"], string> = {
   false_positive: "False positive",
 };
 
-const sevBar: Record<Alert["severity"], string> = {
-  critical: "bg-sev-critical",
-  high: "bg-sev-high",
-  medium: "bg-sev-medium",
-  low: "bg-sev-low",
-};
-
-function StatusChip({ status }: { status: Alert["status"] }) {
-  return <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">{statusLabel[status]}</span>;
-}
-
-function ScoreWhy({ alert }: { alert: Alert }) {
-  return (
-    <WhyTooltip label={`Why is this alert ranked #${alert.rank}?`}>
-      Score {alert.score.toFixed(2)} (0 to 1) says how far this caller's behaviour is from the learned baseline. Rank #{alert.rank} combines that with how risky
-      the endpoint is, so #1 is the one to look at first.
-    </WhyTooltip>
-  );
+function StatusText({ status }: { status: Alert["status"] }) {
+  return <span className={cn("font-mono text-[11px] uppercase tracking-wider", status === "new" ? "text-fg" : "text-muted")}>{statusLabel[status]}</span>;
 }
 
 // ---- Queue -------------------------------------------------------------------------
@@ -55,39 +39,41 @@ function AlertQueue({ alerts, selected }: { alerts: Alert[]; selected?: string }
   }, [alerts]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {groups.map(([caller, items]) => (
-        <Card key={caller}>
-          <header className="flex items-center gap-2 border-b border-border/60 px-4 py-2.5">
-            <h2 className="text-xs text-muted">
-              Caller <CallerId value={caller} />
+        <section key={caller} aria-label={`Alerts for ${caller}`}>
+          <header className="flex items-baseline gap-2 border-b border-border pb-1.5">
+            <span className="eyebrow">Caller</span>
+            <h2>
+              <CallerId value={caller} />
             </h2>
-            <span className="ml-auto text-[11px] text-muted">
+            <span className="ml-auto font-mono text-[11px] text-muted">
               {items.length} alert{items.length === 1 ? "" : "s"}
             </span>
           </header>
           <ul>
             {items.map((a) => (
-              <li key={a.id}>
+              <li key={a.id} className="border-b border-border">
                 <Link
                   to={`/app/alerts/${a.id}`}
                   aria-current={a.id === selected ? "page" : undefined}
-                  className={cn("block px-4 py-2.5 hover:bg-surface-2", a.id === selected && "bg-accent-soft hover:bg-accent-soft")}
+                  className={cn("block py-2.5 pr-2 pl-3 transition-colors ease-ui hover:bg-surface-2", a.id === selected && "bg-surface-2")}
+                  style={a.id === selected ? { boxShadow: "inset 2px 0 0 var(--text)" } : severityEdge(a.severity)}
                 >
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-[11px] text-muted">#{a.rank}</span>
-                    <SeverityBadge severity={a.severity} />
-                    <span className="truncate font-mono text-xs">{a.endpoint}</span>
-                    <span className="text-[11px] text-muted tabular-nums">score {a.score.toFixed(2)}</span>
-                    <StatusChip status={a.status} />
-                    <span className="ml-auto shrink-0 text-[11px] text-muted">{formatRelative(a.ts)}</span>
+                  <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="font-mono text-xs text-muted">#{a.rank}</span>
+                    <SeverityMark severity={a.severity} />
+                    <span className="truncate font-mono text-[13px]">{a.endpoint}</span>
+                    <span className="font-mono text-xs text-muted">{a.score.toFixed(2)}</span>
+                    <StatusText status={a.status} />
+                    <span className="ml-auto shrink-0 font-mono text-[11px] text-muted">{formatRelative(a.ts)}</span>
                   </span>
-                  <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-muted">{a.explanation}</span>
+                  <span className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted">{a.explanation}</span>
                 </Link>
               </li>
             ))}
           </ul>
-        </Card>
+        </section>
       ))}
     </div>
   );
@@ -95,41 +81,30 @@ function AlertQueue({ alerts, selected }: { alerts: Alert[]; selected?: string }
 
 // ---- Detail ------------------------------------------------------------------------
 
-const firstNumber = (s: string) => {
-  const m = s.replace(/,/g, "").match(/-?\d+(\.\d+)?/);
-  return m ? Number(m[0]) : undefined;
-};
-
-function ReasonBars({ alert }: { alert: Alert }) {
+/** "Why this alert": metric, observed, baseline, deviation, as a mono ledger. */
+function ReasonLedger({ alert }: { alert: Alert }) {
   return (
-    <ul className="space-y-3">
-      {alert.reasons.map((r) => {
-        const obs = firstNumber(r.observed);
-        const base = firstNumber(r.baseline);
-        const max = Math.max(obs ?? 0, base ?? 0);
-        const bars = obs !== undefined && base !== undefined && max > 0;
-        return (
-          <li key={r.feature}>
-            <div className="flex flex-wrap items-baseline gap-2 text-sm">
-              <span className="font-medium">{r.feature}</span>
-              {r.z !== undefined && <span className="text-xs text-muted tabular-nums">{r.z.toFixed(1)}σ from normal</span>}
-            </div>
-            <dl className="mt-1 grid grid-cols-[5.5rem_1fr] items-center gap-x-2 gap-y-1 text-xs">
-              <dt className="text-muted">Observed</dt>
-              <dd className="flex items-center gap-2">
-                {bars && <span aria-hidden className={cn("h-2 rounded-full", sevBar[alert.severity])} style={{ width: `${Math.max(2, (obs! / max) * 60)}%` }} />}
-                <span className="font-mono">{r.observed}</span>
-              </dd>
-              <dt className="text-muted">Baseline</dt>
-              <dd className="flex items-center gap-2">
-                {bars && <span aria-hidden className="h-2 rounded-full bg-muted/50" style={{ width: `${Math.max(2, (base! / max) * 60)}%` }} />}
-                <span className="font-mono">{r.baseline}</span>
-              </dd>
-            </dl>
-          </li>
-        );
-      })}
-    </ul>
+    <table className="w-full text-[13px]">
+      <caption className="sr-only">Why this alert was flagged</caption>
+      <thead>
+        <tr className="text-left">
+          <th scope="col" className="eyebrow border-b border-border py-1.5 pr-3 font-medium">Metric</th>
+          <th scope="col" className="eyebrow border-b border-border py-1.5 pr-3 font-medium">Observed</th>
+          <th scope="col" className="eyebrow border-b border-border py-1.5 pr-3 font-medium">Baseline</th>
+          <th scope="col" className="eyebrow border-b border-border py-1.5 text-right font-medium">Deviation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {alert.reasons.map((r) => (
+          <tr key={r.feature} className="border-b border-border/70 align-top">
+            <td className="py-2 pr-3">{r.feature}</td>
+            <td className="py-2 pr-3 font-mono font-medium">{r.observed}</td>
+            <td className="py-2 pr-3 font-mono text-muted">{r.baseline}</td>
+            <td className={cn("py-2 text-right font-mono", r.z !== undefined && r.z >= 3 && "text-signal")}>{r.z !== undefined ? `${r.z.toFixed(1)}σ` : "—"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -138,17 +113,19 @@ function Timeline({ points }: { points: NonNullable<Alert["timeline"]> }) {
   const peak = points.reduce((a, b) => (b.count > a.count ? b : a), points[0]);
   return (
     <div>
-      <div
-        role="img"
-        aria-label={`Requests per bucket over ${points.length} buckets; peak ${peak.count} ${formatRelative(peak.ts)}.`}
-        className="flex h-20 items-end gap-1 rounded-md border border-border bg-surface-2/50 p-2"
-      >
+      <div role="img" aria-label={`Requests per bucket over ${points.length} buckets; peak ${peak.count} ${formatRelative(peak.ts)}.`} className="flex h-16 items-end gap-[3px] border-b border-border">
         {points.map((p) => (
-          <span key={p.ts} title={`${p.count} at ${new Date(p.ts).toLocaleTimeString()}`} className="flex-1 rounded-sm opacity-80" style={{ height: `${Math.max(3, (p.count / max) * 100)}%`, backgroundColor: "var(--chart-blocked)" }} />
+          <span
+            key={p.ts}
+            title={`${p.count} at ${new Date(p.ts).toLocaleTimeString()}`}
+            className="flex-1"
+            style={{ height: `${Math.max(2, (p.count / max) * 100)}%`, background: p.count === peak.count ? "var(--chart-blocked)" : "var(--text-muted)" }}
+          />
         ))}
       </div>
-      <div className="mt-1 flex justify-between text-[11px] text-muted">
+      <div className="mt-1 flex justify-between font-mono text-[11px] text-muted">
         <span>{formatRelative(points[0].ts)}</span>
+        <span>peak {peak.count}</span>
         <span>{formatRelative(points[points.length - 1].ts)}</span>
       </div>
     </div>
@@ -174,16 +151,15 @@ function PromoteDialog({ alert, open, onOpenChange, onDone }: { alert: Alert; op
         ) : (
           <p>
             Only API-key callers can be targeted individually. This caller is a pseudonym (<CallerId value={alert.caller} />): APIShield never stores the raw IP
-            or user id behind it, so the rule applies to <strong className="text-fg">every caller</strong> of{" "}
-            <span className="font-mono text-xs">{alert.endpoint}</span>.
+            or user id behind it, so the rule applies to <strong className="text-fg">every caller</strong> of <span className="font-mono text-xs">{alert.endpoint}</span>.
           </p>
         )
       }
       onConfirm={async () => onDone(await promote.mutateAsync({ id: alert.id, action }))}
     >
       <label className="block text-sm">
-        <span className="mb-1 block font-medium">Action</span>
-        <select value={action} onChange={(e) => setAction(e.target.value as Rule["action"])} className="h-9 w-full rounded-md border border-border bg-surface-2 px-2 text-sm">
+        <span className="eyebrow mb-1 block">Action</span>
+        <select value={action} onChange={(e) => setAction(e.target.value as Rule["action"])} className="h-8 w-full rounded-sm border border-border-strong bg-surface px-2 text-sm">
           <option value="throttle">throttle (10 requests per minute)</option>
           <option value="block">block</option>
           <option value="log">log only</option>
@@ -197,6 +173,15 @@ function formatDelta(n: number) {
   return `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n)}`;
 }
 
+function Block({ title, children }: { title: ReactNode; children: ReactNode }) {
+  return (
+    <section className="border-t border-border pt-3">
+      <h3 className="eyebrow mb-2 text-fg">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 function AlertDetail({ id }: { id: string }) {
   const alert = useAlert(id);
   const { can } = useAuth();
@@ -205,9 +190,9 @@ function AlertDetail({ id }: { id: string }) {
   const [promoting, setPromoting] = useState(false);
   const [promoted, setPromoted] = useState<Rule | null>(null);
 
-  if (alert.isError) return <CardError onRetry={() => alert.refetch()} message="Couldn't load this alert." />;
+  if (alert.isError) return <CardError onRetry={() => alert.refetch()} message="This alert did not load." />;
   const a = alert.data;
-  if (!a) return <Skeleton className="m-5 h-80" />;
+  if (!a) return <Skeleton className="h-80" />;
 
   const act = (status: Alert["status"]) => {
     setFeedback(null);
@@ -215,62 +200,58 @@ function AlertDetail({ id }: { id: string }) {
   };
 
   return (
-    <div className="space-y-5 p-5">
+    <div className="space-y-5">
       <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-muted">#{a.rank}</span>
-          <SeverityBadge severity={a.severity} />
-          <StatusChip status={a.status} />
-          <span className="ml-auto text-xs text-muted">{formatRelative(a.ts)}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-mono text-sm text-muted">#{a.rank}</span>
+          <SeverityMark severity={a.severity} />
+          <StatusText status={a.status} />
+          <span className="ml-auto font-mono text-xs text-muted">{formatRelative(a.ts)}</span>
         </div>
-        <h2 className="font-mono text-base font-semibold">{a.endpoint}</h2>
-        <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
-          Caller <CallerId value={a.caller} />
-          <span aria-hidden>·</span>
-          <span className="tabular-nums">score {a.score.toFixed(2)}</span>
-          <ScoreWhy alert={a} />
+        <h2 className="font-mono text-xl font-medium tracking-tight">{a.endpoint}</h2>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <span>
+            Caller <CallerId value={a.caller} />
+          </span>
+          <Term
+            tip={`Score ${a.score.toFixed(2)} (0 to 1) is how far this caller's behaviour is from the learned baseline. Rank #${a.rank} also weighs how risky the endpoint is, so #1 is first to look at.`}
+          >
+            <span className="font-mono">score {a.score.toFixed(2)}</span>
+          </Term>
         </p>
       </header>
 
-      <section>
-        <h3 className="mb-1 text-xs font-semibold text-muted">What happened</h3>
+      <Block title="What happened">
         <p className="text-sm leading-relaxed">{a.explanation}</p>
-      </section>
+      </Block>
 
       {a.reasons.length > 0 && (
-        <section>
-          <h3 className="mb-2 flex items-center gap-1 text-xs font-semibold text-muted">
-            Why it was flagged
-            <WhyTooltip label="About these reasons">
-              Each reason compares what this caller did with the baseline learned from normal traffic. Only shapes and counts are compared, never payload values.
-            </WhyTooltip>
-          </h3>
-          <ReasonBars alert={a} />
-        </section>
+        <Block title={<Term tip="Each line compares this caller with the baseline learned from normal traffic. Only shapes and counts, never payload values.">Why this alert</Term>}>
+          <ReasonLedger alert={a} />
+        </Block>
       )}
 
       {a.timeline && a.timeline.length > 1 && (
-        <section>
-          <h3 className="mb-2 text-xs font-semibold text-muted">Timeline</h3>
+        <Block title="Timeline">
           <Timeline points={a.timeline} />
-        </section>
+        </Block>
       )}
 
       <section className="space-y-3 border-t border-border pt-4">
         {can("alerts.triage") ? (
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => act("acknowledged")} disabled={setStatus.isPending || a.status === "acknowledged"}>
-              <Eye className="size-3.5" aria-hidden /> Acknowledge
+              Acknowledge
             </Button>
             <Button size="sm" variant="secondary" onClick={() => act("true_positive")} disabled={setStatus.isPending || a.status === "true_positive"}>
-              <ThumbsUp className="size-3.5" aria-hidden /> True positive
+              True positive
             </Button>
             <Button size="sm" variant="secondary" onClick={() => act("false_positive")} disabled={setStatus.isPending || a.status === "false_positive"}>
-              <CircleSlash className="size-3.5" aria-hidden /> False positive
+              False positive
             </Button>
             {can("rules.edit") && (
-              <Button size="sm" onClick={() => setPromoting(true)}>
-                <SlidersHorizontal className="size-3.5" aria-hidden /> Promote to rule
+              <Button size="sm" onClick={() => setPromoting(true)} className="ml-auto">
+                Promote to rule
               </Button>
             )}
           </div>
@@ -279,19 +260,16 @@ function AlertDetail({ id }: { id: string }) {
         )}
         <div role="status" aria-live="polite" className="space-y-1 text-sm">
           {feedback?.adjustment && (
-            <p className="flex items-center gap-2 rounded-md border border-act-allow/30 bg-act-allow/12 px-3 py-2">
-              <Check className="size-4 text-act-allow" aria-hidden />
-              <span>
-                Threshold adjusted: <strong>{feedback.adjustment.feature}</strong> {formatDelta(feedback.adjustment.threshold_delta)}. Similar behaviour will be
-                flagged less eagerly.
-              </span>
+            <p className="border-l-2 border-ok py-1 pl-3">
+              Threshold adjusted: <strong>{feedback.adjustment.feature}</strong> <span className="font-mono">{formatDelta(feedback.adjustment.threshold_delta)}</span>. Sent to the
+              learner as feedback.
             </p>
           )}
           {feedback && !feedback.adjustment && <p className="text-muted">Marked as {statusLabel[feedback.alert.status].toLowerCase()}.</p>}
           {promoted && (
             <p>
               Rule created:{" "}
-              <Link to={`/app/rules?highlight=${encodeURIComponent(promoted.id)}`} className="font-mono text-xs text-accent hover:underline">
+              <Link to={`/app/rules?rule=${encodeURIComponent(promoted.id)}`} className="link font-mono text-xs">
                 {promoted.id}
               </Link>
             </p>
@@ -312,34 +290,30 @@ export default function AlertsPage() {
   const items = alerts.data?.items ?? [];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Alerts</h1>
-          <p className="text-sm text-muted">Anomalies ranked by urgency and grouped by caller. Your feedback tunes the thresholds.</p>
-        </div>
-        <Segmented label="Which alerts" value={filter} options={["active", "all"] as const} onChange={setFilter} />
-      </div>
-      <div className={cn("grid gap-4", id && "lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]")}>
-        <div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Alerts"
+        description="Anomalies from the learner, ranked by urgency and grouped by caller. Feedback is sent back to the learner."
+        actions={<Segmented label="Which alerts" value={filter} options={["active", "all"] as const} onChange={setFilter} />}
+      />
+      <div className={cn("grid gap-x-10 gap-y-6", id && "lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]")}>
+        <div className="min-w-0">
           {alerts.isError ? (
-            <Card>
-              <CardError onRetry={() => alerts.refetch()} />
-            </Card>
+            <CardError onRetry={() => alerts.refetch()} />
           ) : alerts.isLoading ? (
             <Skeleton className="h-80" />
           ) : items.length === 0 ? (
-            <Card>
-              <EmptyState icon={Bell} title="All quiet" body={filter === "active" ? "No active alerts. Switch to “all” to see resolved ones." : "No alerts yet."} />
-            </Card>
+            <div className="border-y border-border">
+              <EmptyState title={filter === "active" ? "0 active alerts" : "0 alerts"} body={filter === "active" ? "Switch to “all” to see resolved alerts." : undefined} />
+            </div>
           ) : (
             <AlertQueue alerts={items} selected={id} />
           )}
         </div>
         {id && (
-          <Card className="self-start lg:sticky lg:top-20">
+          <div className="self-start border-border lg:sticky lg:top-[calc(var(--topbar-h)+24px)] lg:border-l lg:pl-8">
             <AlertDetail key={id} id={id} />
-          </Card>
+          </div>
         )}
       </div>
     </div>

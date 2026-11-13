@@ -1,5 +1,5 @@
 import * as D from "@radix-ui/react-dialog";
-import { AlertTriangle, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { describeError } from "@/lib/errors";
 import { cn } from "@/lib/cn";
@@ -20,15 +20,15 @@ export function Modal({ open, onOpenChange, title, description, children, footer
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-40 bg-bg/70 backdrop-blur-sm" />
+        <D.Overlay className="fixed inset-0 z-40 bg-fg/25 dark:bg-black/55" />
         <D.Content
           className={cn(
-            "fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-surface p-5 shadow-2xl",
+            "fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-border-strong bg-surface p-5",
             className,
           )}
         >
           <div className="mb-3 flex items-start justify-between gap-4">
-            <D.Title className="text-base font-semibold">{title}</D.Title>
+            <D.Title className="text-lg font-semibold tracking-tight">{title}</D.Title>
             <D.Close asChild>
               <Button variant="ghost" size="sm" aria-label="Close" className="-mt-1 -mr-2">
                 <X className="size-4" aria-hidden />
@@ -55,10 +55,10 @@ export function Sheet({ open, onOpenChange, title, description, children }: Omit
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-40 bg-bg/60" />
-        <D.Content className="fixed top-0 right-0 z-50 h-full w-full max-w-md overflow-y-auto border-l border-border bg-surface p-5 shadow-2xl">
+        <D.Overlay className="fixed inset-0 z-40 bg-fg/20 dark:bg-black/50" />
+        <D.Content className="fixed top-0 right-0 z-50 h-full w-full max-w-md overflow-y-auto border-l border-border-strong bg-surface p-5">
           <div className="mb-3 flex items-start justify-between gap-4">
-            <D.Title className="text-base font-semibold">{title}</D.Title>
+            <D.Title className="text-lg font-semibold tracking-tight">{title}</D.Title>
             <D.Close asChild>
               <Button variant="ghost" size="sm" aria-label="Close" className="-mt-1 -mr-2">
                 <X className="size-4" aria-hidden />
@@ -135,8 +135,7 @@ export function ConfirmDialog({ open, onOpenChange, title, description, confirmL
 
 export function InlineError({ message }: { message: string }) {
   return (
-    <p role="alert" className="mt-3 flex items-start gap-2 rounded-md border border-sev-critical/30 bg-sev-critical/10 px-3 py-2 text-sm text-fg">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-sev-critical" aria-hidden />
+    <p role="alert" className="mt-3 border-l-2 border-signal-mark py-1 pl-3 text-sm text-fg">
       <span>{message}</span>
     </p>
   );

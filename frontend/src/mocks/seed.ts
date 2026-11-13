@@ -262,6 +262,9 @@ export function seedFindings(): Record<string, Finding[]> {
 export function seedRules(): Record<string, Rule[]> {
   return {
     up_shop: [
+      // The gateway's built-ins (gateway/rules/builtin.yaml): same ids, matches and priorities.
+      { id: "builtin-ip-denylist", name: "IP deny list", enabled: true, match: { ip: ["203.0.113.0/24"] }, action: "block", source: "builtin", priority: 10, hits_24h: 0 },
+      { id: "builtin-bad-user-agent", name: "Known attack tools (User-Agent)", enabled: true, match: { signature: "bad_user_agent" }, action: "block", source: "builtin", priority: 20, hits_24h: 17 },
       {
         id: "builtin-sqli",
         name: "SQL injection signatures",
@@ -269,8 +272,36 @@ export function seedRules(): Record<string, Rule[]> {
         match: { signature: "sqli" },
         action: "block",
         source: "builtin",
-        priority: 10,
+        priority: 100,
         hits_24h: 214,
+      },
+      { id: "builtin-nosqli", name: "NoSQL injection", enabled: true, match: { signature: "nosqli" }, action: "block", source: "builtin", priority: 100, hits_24h: 2 },
+      { id: "builtin-xss", name: "Cross-site scripting", enabled: true, match: { signature: "xss" }, action: "block", source: "builtin", priority: 100, hits_24h: 9 },
+      { id: "builtin-path-traversal", name: "Path traversal", enabled: true, match: { signature: "path_traversal" }, action: "block", source: "builtin", priority: 100, hits_24h: 6 },
+      {
+        id: "scan-block-debug",
+        name: "Block the exposed /debug endpoint",
+        enabled: true,
+        match: { path: "/debug" },
+        action: "block",
+        source: "scanner",
+        priority: 100,
+        hits_24h: 37,
+        created_at: minutesAgo(60 * 20),
+        created_by: "admin@demo.local",
+      },
+      {
+        id: "learner-throttle-search",
+        name: "Throttle the /search spike from key_929bf132",
+        enabled: false,
+        match: { path: "/search", method: "GET", condition: "caller == 'key_929bf132'" },
+        action: "throttle",
+        source: "learner",
+        priority: 100,
+        throttle: { limit: 30, per: 60 },
+        hits_24h: 0,
+        created_at: minutesAgo(30),
+        created_by: "learner",
       },
       {
         id: "block-admin-writes",

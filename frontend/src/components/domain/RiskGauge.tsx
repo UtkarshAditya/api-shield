@@ -1,46 +1,44 @@
-import { severityForScore, SeverityBadge } from "./SeverityBadge";
+import { cn } from "@/lib/cn";
+import { severityForScore, SeverityMark } from "./SeverityBadge";
 
-/** Semicircle gauge 0–10. Color reinforces the severity badge below it. */
-export function RiskGauge({ score }: { score: number }) {
-  const sev = severityForScore(score);
-  const r = 80;
-  const len = Math.PI * r;
-  const frac = Math.min(1, Math.max(0, score / 10));
-  const color = `var(--sev-${sev})`;
-  const angle = Math.PI * (1 - frac);
-  const nx = 100 + r * Math.cos(angle);
-  const ny = 100 - r * Math.sin(angle);
-
+/** A 10-segment horizontal bar for a 0-10 score; filled segments take the severity color. */
+export function SegmentBar({ value, max = 10, segments = 10, color, label, className }: {
+  value: number;
+  max?: number;
+  segments?: number;
+  color?: string;
+  label: string;
+  className?: string;
+}) {
+  const filled = Math.round((Math.min(max, Math.max(0, value)) / max) * segments);
   return (
-    <div className="flex flex-col items-center">
-      <svg viewBox="0 0 200 116" className="w-full max-w-[240px]" role="img" aria-label={`API risk score ${score.toFixed(1)} out of 10, ${sev}`}>
-        <defs>
-          <linearGradient id="gauge-track" x1="0" x2="1">
-            <stop offset="0%" stopColor="var(--sev-low)" stopOpacity="0.25" />
-            <stop offset="50%" stopColor="var(--sev-medium)" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="var(--sev-critical)" stopOpacity="0.25" />
-          </linearGradient>
-        </defs>
-        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="url(#gauge-track)" strokeWidth="14" strokeLinecap="round" />
-        <path
-          d="M20 100 A80 80 0 0 1 180 100"
-          fill="none"
-          stroke={color}
-          strokeWidth="14"
-          strokeLinecap="round"
-          strokeDasharray={len}
-          strokeDashoffset={len * (1 - frac)}
-          style={{ transition: "stroke-dashoffset 900ms cubic-bezier(.2,.8,.2,1)" }}
+    <div role="img" aria-label={label} className={cn("flex gap-[3px]", className)}>
+      {Array.from({ length: segments }, (_, i) => (
+        <span
+          key={i}
+          aria-hidden
+          className={cn("h-2 flex-1", i < filled ? "" : "bg-border")}
+          style={i < filled ? { background: color ?? "var(--text)" } : undefined}
         />
-        <circle cx={nx} cy={ny} r="6" fill="var(--surface)" stroke={color} strokeWidth="3" />
-        <text x="100" y="92" textAnchor="middle" className="fill-[var(--text)] font-semibold" fontSize="34">
-          {score.toFixed(1)}
-        </text>
-        <text x="100" y="110" textAnchor="middle" className="fill-[var(--text-muted)]" fontSize="10">
-          out of 10
-        </text>
-      </svg>
-      <SeverityBadge severity={sev} className="-mt-1" />
+      ))}
     </div>
   );
 }
+
+/** API risk: a large number, a segmented bar and the severity word. Replaces the gauge arc. */
+export function RiskMeter({ score, className }: { score: number; className?: string }) {
+  const sev = severityForScore(score);
+  return (
+    <div className={cn("space-y-3", className)}>
+      <div className="flex items-baseline gap-3">
+        <span className="font-mono text-[56px] leading-none font-medium tracking-tight">{score.toFixed(1)}</span>
+        <span className="font-mono text-sm text-muted">/ 10</span>
+        <SeverityMark severity={sev} className="ml-auto" />
+      </div>
+      <SegmentBar value={score} color={`var(--sev-${sev})`} label={`API risk score ${score.toFixed(1)} out of 10, ${sev}`} />
+    </div>
+  );
+}
+
+/** Kept for existing imports. */
+export const RiskGauge = RiskMeter;

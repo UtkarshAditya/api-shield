@@ -1,27 +1,29 @@
-import { AlertOctagon, AlertTriangle, Info, ShieldAlert, type LucideIcon } from "lucide-react";
-import { ArrowDownCircle } from "lucide-react";
 import type { Severity } from "@/api/schemas";
 import { cn } from "@/lib/cn";
 
-const config: Record<Severity, { label: string; icon: LucideIcon; cls: string }> = {
-  critical: { label: "Critical", icon: AlertOctagon, cls: "text-sev-critical bg-sev-critical/12 border-sev-critical/30" },
-  high: { label: "High", icon: ShieldAlert, cls: "text-sev-high bg-sev-high/12 border-sev-high/30" },
-  medium: { label: "Medium", icon: AlertTriangle, cls: "text-sev-medium bg-sev-medium/12 border-sev-medium/30" },
-  low: { label: "Low", icon: ArrowDownCircle, cls: "text-sev-low bg-sev-low/12 border-sev-low/30" },
-  info: { label: "Info", icon: Info, cls: "text-sev-info bg-sev-info/12 border-sev-info/30" },
-};
+const label: Record<Severity, string> = { critical: "Critical", high: "High", medium: "Medium", low: "Low", info: "Info" };
+const order: Severity[] = ["info", "low", "medium", "high", "critical"];
 
-/** Severity is always color + icon + text, never color alone. */
-export function SeverityBadge({ severity, className }: { severity: Severity; className?: string }) {
-  const c = config[severity];
-  const Icon = c.icon;
+/**
+ * Severity as a mark plus the word, never color alone. The ramp is ordered:
+ * info (hollow) -> low -> medium -> high -> critical (vermilion), and the square fills with rank.
+ */
+export function SeverityMark({ severity, className, compact }: { severity: Severity; className?: string; compact?: boolean }) {
+  const rank = order.indexOf(severity);
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium", c.cls, className)}>
-      <Icon className="size-3" aria-hidden />
-      {c.label}
+    <span className={cn("inline-flex items-center gap-1.5 text-[13px] whitespace-nowrap", className)}>
+      <span
+        aria-hidden
+        className={cn("inline-block size-2.5 shrink-0 border", rank === 0 ? "border-sev-info bg-transparent" : "border-transparent")}
+        style={rank > 0 ? { background: `var(--sev-${severity})` } : undefined}
+      />
+      <span className={cn(compact && "sr-only", severity === "critical" ? "font-medium text-sev-critical" : "text-fg")}>{label[severity]}</span>
     </span>
   );
 }
+
+/** Kept for existing imports (and the brief's name): same component. */
+export const SeverityBadge = SeverityMark;
 
 export function severityForScore(score: number): Severity {
   if (score >= 9) return "critical";
@@ -29,4 +31,9 @@ export function severityForScore(score: number): Severity {
   if (score >= 4) return "medium";
   if (score >= 1) return "low";
   return "info";
+}
+
+/** Thin left edge bar in the severity color, for list rows. */
+export function severityEdge(severity: Severity) {
+  return { boxShadow: `inset 2px 0 0 var(--sev-${severity})` };
 }

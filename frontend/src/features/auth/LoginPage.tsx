@@ -14,7 +14,7 @@ const demoAccounts: { role: Role; email: string; blurb: string }[] = [
 ];
 
 const input =
-  "h-10 w-full rounded-md border border-border bg-surface-2 px-3 text-sm text-fg placeholder:text-muted focus:border-accent focus:outline-none";
+  "h-10 w-full rounded-sm border border-border-strong bg-surface px-3 text-sm text-fg placeholder:text-muted focus:border-fg focus:outline-none";
 
 function VaultMotif() {
   return (
@@ -66,7 +66,6 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-surface p-10 lg:flex">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,color-mix(in_oklab,var(--accent)_14%,transparent),transparent_60%)]" />
         <Link to="/" className="relative inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
           <ArrowLeft className="size-4" aria-hidden /> Back to the story
         </Link>
@@ -83,10 +82,10 @@ export default function LoginPage() {
       <main className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2">
-            <ShieldCheck className="size-7 text-accent" aria-hidden />
+            <ShieldCheck className="size-6 text-fg" aria-hidden />
             <span className="text-xl font-semibold tracking-tight">APIShield</span>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+          <h1 className="text-title font-semibold">Sign in</h1>
           <p className="mt-1 text-sm text-muted">to your gateway dashboard</p>
 
           <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
@@ -103,7 +102,7 @@ export default function LoginPage() {
               <input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={input} />
             </div>
             {error && (
-              <p role="alert" className="rounded-md border border-sev-critical/40 bg-sev-critical/10 px-3 py-2 text-sm text-sev-critical">
+              <p role="alert" className="border-l-2 border-signal-mark py-1 pl-3 text-sm text-fg">
                 {error}
               </p>
             )}
@@ -114,8 +113,8 @@ export default function LoginPage() {
           </form>
 
           {import.meta.env.VITE_USE_MOCKS === "true" && (
-            <div className="mt-8 rounded-xl border border-dashed border-border p-4">
-              <p className="text-xs font-semibold tracking-wider text-muted uppercase">Demo accounts</p>
+            <div className="mt-8 border-t border-border pt-4">
+              <p className="eyebrow">Demo accounts</p>
               <p className="mt-1 text-xs text-muted">
                 Password for all: <code className="font-mono text-fg">demo</code>
               </p>
@@ -128,7 +127,7 @@ export default function LoginPage() {
                       setEmail(a.email);
                       setPassword("demo");
                     }}
-                    className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-2"
+                    className="flex w-full items-center justify-between rounded-sm px-2 py-2 text-left text-sm hover:bg-surface-2"
                   >
                     <span>
                       <span className="font-medium">{roleLabel[a.role]}</span>

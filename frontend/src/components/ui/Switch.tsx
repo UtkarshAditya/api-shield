@@ -10,6 +10,7 @@ type Props = {
   id?: string;
 };
 
+/** Square-ish ink switch: on = ink track, off = hairline track. */
 export function Switch({ checked, onCheckedChange, label, disabled, id }: Props) {
   return (
     <S.Root
@@ -19,14 +20,14 @@ export function Switch({ checked, onCheckedChange, label, disabled, id }: Props)
       disabled={disabled}
       aria-label={label}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-accent" : "bg-surface-2",
+        "relative inline-flex h-[18px] w-8 shrink-0 items-center rounded-sm border transition-colors ease-ui disabled:cursor-not-allowed disabled:opacity-45",
+        checked ? "border-accent bg-accent" : "border-border-strong bg-transparent",
       )}
     >
       <S.Thumb
         className={cn(
-          "block size-4 rounded-full bg-surface shadow transition-transform",
-          checked ? "translate-x-[17px]" : "translate-x-[1px]",
+          "block size-3 rounded-[1px] transition-transform ease-ui",
+          checked ? "translate-x-[15px] bg-accent-fg" : "translate-x-[2px] bg-border-strong",
         )}
       />
     </S.Root>

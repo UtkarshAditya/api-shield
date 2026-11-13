@@ -1,27 +1,37 @@
-import { Eye, ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
 
-export function ModeBadge({ mode }: { mode: "monitor" | "enforce" | undefined }) {
-  if (!mode) return <span className="h-7 w-24 animate-pulse rounded-full bg-surface-2" aria-hidden />;
-  const enforce = mode === "enforce";
+type Mode = "monitor" | "enforce";
+
+export const modeExplain: Record<Mode, string> = {
+  monitor: "MONITOR: everything passes. Rule matches are logged, so you can see what would be blocked.",
+  enforce: "ENFORCE: requests that match a block, throttle or challenge rule are rejected before they reach your API.",
+};
+
+/** One segment of the two-state mode control. Active MONITOR is ink; active ENFORCE is the signal color. */
+export function ModeSegment({ mode, active, children, className }: { mode: Mode; active: boolean; children?: ReactNode; className?: string }) {
   return (
-    <Tooltip
-      content={
-        enforce
-          ? "ENFORCE: requests that match a block rule are rejected before they reach your API."
-          : "MONITOR: everything is allowed through. Rule matches are logged so you can see what would be blocked."
-      }
+    <span
+      className={cn(
+        "inline-flex h-7 items-center px-2.5 font-mono text-[11px] font-medium tracking-wider",
+        active ? (mode === "enforce" ? "bg-signal-mark text-surface" : "bg-accent text-accent-fg") : "text-muted",
+        className,
+      )}
     >
-      <span
-        tabIndex={0}
-        className={cn(
-          "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold tracking-wider",
-          enforce ? "border-sev-critical/40 bg-sev-critical/10 text-sev-critical" : "border-sev-low/40 bg-sev-low/10 text-sev-low",
-        )}
-      >
-        {enforce ? <ShieldCheck className="size-3.5" aria-hidden /> : <Eye className="size-3.5" aria-hidden />}
-        {enforce ? "ENFORCE" : "MONITOR"}
+      {children ?? mode.toUpperCase()}
+    </span>
+  );
+}
+
+/** Read-only mode display (non-admins). */
+export function ModeBadge({ mode }: { mode: Mode | undefined }) {
+  if (!mode) return <span className="h-7 w-36 animate-pulse bg-surface-2" aria-hidden />;
+  return (
+    <Tooltip content={modeExplain[mode]}>
+      <span tabIndex={0} className="inline-flex border border-border-strong" aria-label={`Gateway mode: ${mode.toUpperCase()}`}>
+        <ModeSegment mode="monitor" active={mode === "monitor"} />
+        <ModeSegment mode="enforce" active={mode === "enforce"} className="border-l border-border-strong" />
       </span>
     </Tooltip>
   );

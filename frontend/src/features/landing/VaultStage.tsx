@@ -24,9 +24,9 @@ function BackLayer() {
     <svg viewBox="0 0 800 800" className="absolute inset-0 size-full overflow-visible" aria-hidden>
       <defs>
         <radialGradient id="v-rim" cx="50%" cy="50%" r="50%">
-          <stop offset="60%" stopColor="#14b8a6" stopOpacity="0" />
-          <stop offset="78%" stopColor="#14b8a6" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+          <stop offset="60%" stopColor="#4f9a89" stopOpacity="0" />
+          <stop offset="78%" stopColor="#4f9a89" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#4f9a89" stopOpacity="0" />
         </radialGradient>
         <linearGradient id="v-metal" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#3b4857" />
@@ -34,8 +34,8 @@ function BackLayer() {
           <stop offset="100%" stopColor="#2c3846" />
         </linearGradient>
         <radialGradient id="v-interior" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#f0fdfa" />
-          <stop offset="45%" stopColor="#5eead4" />
+          <stop offset="0%" stopColor="#e7e5df" />
+          <stop offset="45%" stopColor="#9fd0c3" />
           <stop offset="100%" stopColor="#0d9488" stopOpacity="0.6" />
         </radialGradient>
       </defs>
@@ -94,7 +94,7 @@ function DoorLayer() {
           return <circle key={i} cx={p.x} cy={p.y} r={4} fill="#44525f" stroke="#0c1117" />;
         })}
         <circle cx={C} cy={C} r={192} fill="none" stroke="#202a36" strokeWidth={20} />
-        <circle className="v-door-rim" cx={C} cy={C} r={192} fill="none" stroke="#2dd4bf" strokeWidth={1.5} style={{ opacity: 0.15 }} />
+        <circle className="v-door-rim" cx={C} cy={C} r={192} fill="none" stroke="#6db3a2" strokeWidth={1.5} style={{ opacity: 0.15 }} />
 
         {/* keyhole plate */}
         <rect x={370} y={546} width={60} height={78} rx={11} fill="#18212c" stroke="#4c5b6b" strokeWidth={2} />
@@ -116,7 +116,7 @@ function DoorLayer() {
           })}
           <circle cx={C} cy={C} r={100} fill="none" stroke="#56677a" strokeWidth={9} />
           <circle cx={C} cy={C} r={38} fill="url(#v-hub)" stroke="#8796a6" strokeWidth={3} />
-          <circle className="v-hub-light" cx={C} cy={C} r={10} fill="#2dd4bf" />
+          <circle className="v-hub-light" cx={C} cy={C} r={10} fill="#6db3a2" />
         </g>
       </svg>
     </div>
@@ -139,9 +139,9 @@ function OverlayLayer() {
           <circle cx={C} cy={C} r={270} />
         </clipPath>
         <linearGradient id="v-beam" x1="0" x2="1">
-          <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0" />
-          <stop offset="50%" stopColor="#5eead4" stopOpacity="0.55" />
-          <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0" />
+          <stop offset="0%" stopColor="#6db3a2" stopOpacity="0" />
+          <stop offset="50%" stopColor="#9fd0c3" stopOpacity="0.55" />
+          <stop offset="100%" stopColor="#6db3a2" stopOpacity="0" />
         </linearGradient>
         <symbol id="v-key" viewBox="0 0 40 16">
           <circle cx="7" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="2.5" />
@@ -161,24 +161,24 @@ function OverlayLayer() {
         <rect className="v-beam" x={0} y={100} width={90} height={600} fill="url(#v-beam)" style={{ opacity: 0 }} />
         <g className="v-scangrid" style={{ opacity: 0 }}>
           {Array.from({ length: 14 }, (_, i) => (
-            <line key={i} x1={130 + i * 40} y1={100} x2={130 + i * 40} y2={700} stroke="#2dd4bf" strokeOpacity={0.12} />
+            <line key={i} x1={130 + i * 40} y1={100} x2={130 + i * 40} y2={700} stroke="#6db3a2" strokeOpacity={0.12} />
           ))}
         </g>
       </g>
 
-      {/* weak spots (red) and their fixed state (teal) */}
+      {/* weak spots (red) and their fixed state (verdigris) */}
       {[
         { cls: "v-weak1", fix: "v-fixed1", ...KEYHOLE },
         { cls: "v-weak2", fix: "v-fixed2", ...HINGE },
       ].map((w) => (
         <g key={w.cls}>
           <g className={w.cls} style={{ opacity: 0 }}>
-            <circle cx={w.x} cy={w.y} r={24} fill="#f43f5e" fillOpacity={0.18} stroke="#fb7185" strokeWidth={2.5} />
-            <circle cx={w.x} cy={w.y} r={24} fill="none" stroke="#fb7185" strokeWidth={2} className="origin-center animate-ping [transform-box:fill-box]" />
+            <circle cx={w.x} cy={w.y} r={24} fill="#f0623c" fillOpacity={0.18} stroke="#f0623c" strokeWidth={2.5} />
+            <circle cx={w.x} cy={w.y} r={24} fill="none" stroke="#f0623c" strokeWidth={2} className="origin-center animate-ping [transform-box:fill-box]" />
           </g>
           <g className={w.fix} style={{ opacity: 0 }}>
-            <circle cx={w.x} cy={w.y} r={24} fill="#14b8a6" fillOpacity={0.2} stroke="#2dd4bf" strokeWidth={2.5} />
-            <path d={`M${w.x - 9} ${w.y} l6 6 l12 -12`} stroke="#5eead4" strokeWidth={3.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx={w.x} cy={w.y} r={24} fill="#4f9a89" fillOpacity={0.2} stroke="#6db3a2" strokeWidth={2.5} />
+            <path d={`M${w.x - 9} ${w.y} l6 6 l12 -12`} stroke="#9fd0c3" strokeWidth={3.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </g>
         </g>
       ))}
@@ -188,7 +188,7 @@ function OverlayLayer() {
         <g className="v-pick" style={{ opacity: 0 }}>
           <path d="M0 0 q-3 -10 8 -12" stroke="#cfd8e2" strokeWidth={3} fill="none" strokeLinecap="round" />
           <line x1={0} y1={0} x2={180} y2={0} stroke="#cfd8e2" strokeWidth={3.5} strokeLinecap="round" />
-          <rect x={176} y={-10} width={96} height={20} rx={10} fill="#e11d48" />
+          <rect x={176} y={-10} width={96} height={20} rx={10} fill="#d8431f" />
         </g>
       </g>
 
@@ -197,21 +197,21 @@ function OverlayLayer() {
         <g className="v-crowbar" style={{ opacity: 0 }}>
           <path d="M0 0 C -4 -16, -22 -20, -32 -10" stroke="#a3adb8" strokeWidth={10} fill="none" strokeLinecap="round" />
           <line x1={0} y1={0} x2={280} y2={0} stroke="#a3adb8" strokeWidth={11} strokeLinecap="round" />
-          <rect x={210} y={-8} width={76} height={16} rx={8} fill="#c2410c" />
+          <rect x={210} y={-8} width={76} height={16} rx={8} fill="#b93716" />
         </g>
       </g>
 
       <g className="v-sparks" transform={`translate(${HINGE.x + 4} ${HINGE.y})`} style={{ opacity: 0 }}>
         {Array.from({ length: 12 }, (_, i) => {
           const a = (i * 30 * Math.PI) / 180;
-          return <line key={i} x1={Math.cos(a) * 12} y1={Math.sin(a) * 12} x2={Math.cos(a) * (28 + (i % 3) * 10)} y2={Math.sin(a) * (28 + (i % 3) * 10)} stroke="#fbbf24" strokeWidth={2.5} strokeLinecap="round" />;
+          return <line key={i} x1={Math.cos(a) * 12} y1={Math.sin(a) * 12} x2={Math.cos(a) * (28 + (i % 3) * 10)} y2={Math.sin(a) * (28 + (i % 3) * 10)} stroke="#e0954a" strokeWidth={2.5} strokeLinecap="round" />;
         })}
       </g>
 
       {/* the flood of keys */}
       <g>
         {keyStarts.map((k) => (
-          <use key={k.i} href="#v-key" className="v-key" width={34} height={14} style={{ opacity: 0, color: "#facc15" }} />
+          <use key={k.i} href="#v-key" className="v-key" width={34} height={14} style={{ opacity: 0, color: "#c8ad5e" }} />
         ))}
       </g>
 
@@ -225,7 +225,7 @@ function OverlayLayer() {
         <text x={-38} y={124} fill="#94a3b4" fillOpacity={0.8} fontSize={12}>
           baseline
         </text>
-        <g stroke="#2dd4bf" strokeWidth={2}>
+        <g stroke="#6db3a2" strokeWidth={2}>
           <line x1={0} y1={-60} x2={-45} y2={-5} />
           <line x1={0} y1={-60} x2={45} y2={-5} />
           <line x1={-45} y1={-5} x2={-65} y2={55} />
@@ -242,9 +242,9 @@ function OverlayLayer() {
           [22, 55],
           [65, 55],
         ].map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r={7} fill="#0a0e13" stroke="#2dd4bf" strokeWidth={2.5} />
+          <circle key={i} cx={x} cy={y} r={7} fill="#0a0e13" stroke="#6db3a2" strokeWidth={2.5} />
         ))}
-        <g className="v-odd" stroke="#fb7185" strokeWidth={2.5} style={{ opacity: 0 }}>
+        <g className="v-odd" stroke="#f0623c" strokeWidth={2.5} style={{ opacity: 0 }}>
           <line x1={65} y1={55} x2={88} y2={110} />
           <line x1={88} y1={110} x2={62} y2={160} />
           <line x1={88} y1={110} x2={100} y2={170} />
@@ -256,9 +256,9 @@ function OverlayLayer() {
 
       {/* the legitimate key */}
       <g className="v-goodkey" style={{ opacity: 0 }} filter="url(#v-glow)">
-        <line x1={KEYHOLE.x} y1={KEYHOLE.y} x2={KEYHOLE.x} y2={KEYHOLE.y + 70} stroke="#5eead4" strokeWidth={7} strokeLinecap="round" />
-        <path d={`M${KEYHOLE.x} ${KEYHOLE.y + 14} h12 M${KEYHOLE.x} ${KEYHOLE.y + 28} h8`} stroke="#5eead4" strokeWidth={6} strokeLinecap="round" />
-        <circle cx={KEYHOLE.x} cy={KEYHOLE.y + 92} r={22} fill="none" stroke="#5eead4" strokeWidth={7} />
+        <line x1={KEYHOLE.x} y1={KEYHOLE.y} x2={KEYHOLE.x} y2={KEYHOLE.y + 70} stroke="#9fd0c3" strokeWidth={7} strokeLinecap="round" />
+        <path d={`M${KEYHOLE.x} ${KEYHOLE.y + 14} h12 M${KEYHOLE.x} ${KEYHOLE.y + 28} h8`} stroke="#9fd0c3" strokeWidth={6} strokeLinecap="round" />
+        <circle cx={KEYHOLE.x} cy={KEYHOLE.y + 92} r={22} fill="none" stroke="#9fd0c3" strokeWidth={7} />
       </g>
     </svg>
   );

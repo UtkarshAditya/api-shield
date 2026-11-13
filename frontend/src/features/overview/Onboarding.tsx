@@ -1,31 +1,27 @@
-import { CheckCircle2, Circle } from "lucide-react";
-import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/Primitives";
 
 const steps = [
-  { title: "Add an upstream", body: "Point APIShield at the API you want to protect.", done: false },
-  { title: "Run your first scan", body: "Find weaknesses before attackers do. Safe mode is on by default.", done: false },
-  { title: "Start in monitor mode", body: "Nothing is blocked yet. See what would be blocked first.", done: false },
-  { title: "Enable learning", body: "The learner studies traffic shapes (never values) and flags what's unusual.", done: false },
+  { title: "Add an upstream", body: "Point APIShield at the API to protect." },
+  { title: "Run the first scan", body: "Safe, read-only probes for the OWASP API Top 10. Safe mode is on by default." },
+  { title: "Start in MONITOR", body: "Nothing is blocked yet; rule matches are logged." },
+  { title: "Let it learn", body: "The learner studies traffic shapes, never values, and flags what is unusual." },
 ];
 
 export function Onboarding() {
   return (
-    <Card className="mx-auto max-w-xl p-6">
-      <h1 className="text-xl font-semibold">Welcome to APIShield</h1>
-      <p className="mt-1 text-sm text-muted">Four steps to a protected API. Most teams finish in under 15 minutes.</p>
-      <ol className="mt-6 space-y-4">
+    <div className="max-w-2xl space-y-6">
+      <PageHeader title="Set up APIShield" description="No upstream is configured yet. Four steps." />
+      <ol className="border-t border-border">
         {steps.map((s, i) => (
-          <li key={s.title} className="flex gap-3">
-            {s.done ? <CheckCircle2 className="mt-0.5 size-5 text-accent" aria-hidden /> : <Circle className="mt-0.5 size-5 text-muted" aria-hidden />}
+          <li key={s.title} className="grid grid-cols-[3rem_1fr] border-b border-border py-3">
+            <span className="font-mono text-sm text-muted">{String(i + 1).padStart(2, "0")}</span>
             <div>
-              <p className="font-medium">
-                {i + 1}. {s.title}
-              </p>
+              <p className="font-medium">{s.title}</p>
               <p className="text-sm text-muted">{s.body}</p>
             </div>
           </li>
         ))}
       </ol>
-    </Card>
+    </div>
   );
 }

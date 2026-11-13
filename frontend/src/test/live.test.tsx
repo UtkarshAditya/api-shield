@@ -39,8 +39,8 @@ const screens: [string, ReactElement, RegExp][] = [
   ["Alerts", <AlertsPage />, /Alerts/],
   ["Scans", <ScansPage />, /Scans & reports/],
   ["API map", <InventoryPage />, /Requests 24 h/],
-  ["Rules", <RulesPage />, /Gateway rules|No rules yet/],
-  ["Learning", <LearningPage />, /Payload shapes learned/],
+  ["Rules", <RulesPage />, /Gateway rules|0 rules/],
+  ["Learning", <LearningPage />, /Payload shapes/],
   ["Settings", <SettingsPage />, /Never stored/],
 ];
 
@@ -63,7 +63,7 @@ describe.runIf(live)("screens against the live Admin API", () => {
     expect((await screen.findAllByText(marker, undefined, { timeout: 8000 })).length).toBeGreaterThan(0);
     // Let the first round of queries settle, then make sure none failed or broke the contract.
     await new Promise((r) => setTimeout(r, 1500));
-    await waitFor(() => expect(screen.queryByText(/couldn't load/i)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/did not load|couldn't load/i)).not.toBeInTheDocument());
     expect(errors.filter((e) => String(e).includes("does not match the contract"))).toEqual([]);
   });
 

@@ -1,23 +1,34 @@
-import { useEffect, useState } from "react";
-import { Brain, RotateCcw } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLearningMutations, useLearningStatus } from "@/api/queries";
 import { useWorkspace } from "@/app/WorkspaceContext";
 import { useAuth } from "@/auth/AuthContext";
-import { WhyTooltip } from "@/components/domain/WhyTooltip";
+import { Term } from "@/components/domain/Term";
 import { Button } from "@/components/ui/Button";
-import { Card, CardError, CardHeader } from "@/components/ui/Card";
+import { CardError } from "@/components/ui/Card";
 import { ConfirmDialog, InlineError } from "@/components/ui/Dialog";
+import { PageHeader, Section, StatusDot } from "@/components/ui/Primitives";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Switch } from "@/components/ui/Switch";
 import { describeError } from "@/lib/errors";
+import { cn } from "@/lib/cn";
 import { formatRelative } from "@/lib/format";
 
 const modeLabel = { warmup: "Warming up", active: "Active", disabled: "Disabled" } as const;
+const SEGMENTS = 20;
 
 function sensitivityWords(v: number) {
   if (v < 0.34) return "Relaxed: only strong outliers become alerts.";
   if (v < 0.67) return "Balanced: the default.";
-  return "Strict: smaller deviations become alerts, expect more of them.";
+  return "Strict: smaller deviations become alerts; expect more of them.";
+}
+
+function Figure({ label, value, tip }: { label: string; value: ReactNode; tip?: string }) {
+  return (
+    <div className="space-y-1.5 border-l border-border px-5 py-3 first:border-l-0 first:pl-0">
+      <p className="eyebrow">{tip ? <Term tip={tip}>{label}</Term> : label}</p>
+      <p className="font-mono text-3xl font-medium tracking-tight">{value}</p>
+    </div>
+  );
 }
 
 export default function LearningPage() {
@@ -34,71 +45,62 @@ export default function LearningPage() {
     if (s?.sensitivity !== undefined) setSensitivity(s.sensitivity);
   }, [s?.sensitivity]);
 
+  const pct = s ? Math.round(s.progress * 100) : 0;
+  const filled = s ? Math.round(s.progress * SEGMENTS) : 0;
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Learning</h1>
-        <p className="text-sm text-muted">
-          The learner builds a baseline of normal traffic per endpoint. It learns <strong className="text-fg">shapes</strong> (field names, types, sizes and rates),
-          never the values inside requests.
-        </p>
-      </div>
+    <div className="max-w-5xl space-y-8">
+      <PageHeader
+        title="Learning"
+        description={
+          <>
+            The learner builds a baseline of normal traffic per endpoint. It learns shapes (field names, types, sizes and rates), never the values inside requests.
+          </>
+        }
+      />
 
       {status.isError ? (
-        <Card>
-          <CardError onRetry={() => status.refetch()} />
-        </Card>
+        <CardError onRetry={() => status.refetch()} />
       ) : !s ? (
         <Skeleton className="h-64" />
       ) : (
         <>
-          <Card>
-            <CardHeader
-              title="Status"
-              hint={
-                <WhyTooltip label="What do these numbers mean?">
-                  During warm-up the learner only observes. Once it is active, traffic that strays far from the baseline becomes an alert.
-                </WhyTooltip>
-              }
-            />
-            <div className="grid gap-4 px-5 pb-5 sm:grid-cols-3">
-              <div>
-                <p className="text-xs text-muted">Mode</p>
-                <p className="mt-1 flex items-center gap-2 text-lg font-semibold">
-                  <Brain className={s.mode === "disabled" ? "size-4 text-muted" : "size-4 text-accent"} aria-hidden />
-                  {modeLabel[s.mode]}
+          <Section title={<Term tip="During warm-up the learner only observes. Once active, traffic far from the baseline becomes an alert.">Status</Term>}>
+            <div className="grid grid-cols-3 border-b border-border">
+              <div className="space-y-1.5 px-5 py-3 pl-0">
+                <p className="eyebrow">Mode</p>
+                <p className="pt-1">
+                  <StatusDot tone={s.mode === "active" ? "ok" : s.mode === "warmup" ? "ink" : "muted"} className="text-lg">
+                    {modeLabel[s.mode]}
+                  </StatusDot>
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-muted">Endpoints learned</p>
-                <p className="mt-1 text-lg font-semibold tabular-nums">{s.endpoints_learned}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted">Payload shapes learned</p>
-                <p className="mt-1 text-lg font-semibold tabular-nums">{s.shapes_learned ?? "—"}</p>
-              </div>
-              <div className="sm:col-span-3">
-                <div className="mb-1 flex justify-between text-xs text-muted">
-                  <span>Baseline progress</span>
-                  <span className="tabular-nums">{Math.round(s.progress * 100)}%</span>
-                </div>
-                <div role="progressbar" aria-label="Baseline progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(s.progress * 100)} className="h-2 overflow-hidden rounded-full bg-surface-2">
-                  <div className="h-full rounded-full bg-accent" style={{ width: `${s.progress * 100}%` }} />
-                </div>
-                <p className="mt-1 text-xs text-muted">
-                  Started {formatRelative(s.started_at)}
-                  {s.ends_at && (s.mode === "warmup" ? `, ready ${formatRelative(s.ends_at)}` : `, baseline ready since ${formatRelative(s.ends_at)}`)}.
-                </p>
-              </div>
+              <Figure label="Endpoints learned" value={s.endpoints_learned} />
+              <Figure label="Payload shapes" value={s.shapes_learned ?? "—"} tip="Distinct request shapes (field names and types). Never values." />
             </div>
-          </Card>
+            <div className="mt-4 grid items-center gap-x-4 gap-y-1 sm:grid-cols-[1fr_auto]">
+              <div
+                role="progressbar"
+                aria-label="Baseline progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={pct}
+                className="flex gap-[3px]"
+              >
+                {Array.from({ length: SEGMENTS }, (_, i) => (
+                  <span key={i} aria-hidden className={cn("h-1.5 flex-1", i < filled ? "bg-fg" : "bg-border")} />
+                ))}
+              </div>
+              <span className="font-mono text-sm">{pct}%</span>
+              <p className="font-mono text-xs text-muted sm:col-span-2">
+                started {formatRelative(s.started_at)}
+                {s.ends_at && (s.mode === "warmup" ? ` · ready ${formatRelative(s.ends_at)}` : ` · baseline ready since ${formatRelative(s.ends_at)}`)}
+              </p>
+            </div>
+          </Section>
 
-          <Card>
-            <CardHeader
-              title="Sensitivity"
-              hint={<WhyTooltip label="What does sensitivity change?">Higher sensitivity flags smaller deviations from the baseline. Your false-positive feedback on alerts nudges thresholds too.</WhyTooltip>}
-            />
-            <div className="space-y-3 px-5 pb-5">
+          <Section title={<Term tip="Higher sensitivity flags smaller deviations from the baseline. False-positive feedback on alerts also adjusts thresholds.">Sensitivity</Term>}>
+            <div className="space-y-3">
               <div className="flex items-center gap-4">
                 <label htmlFor="sensitivity" className="sr-only">
                   Sensitivity
@@ -113,11 +115,11 @@ export default function LearningPage() {
                   disabled={!editable}
                   onChange={(e) => setSensitivity(Number(e.target.value))}
                   aria-valuetext={`${Math.round(sensitivity * 100)}%. ${sensitivityWords(sensitivity)}`}
-                  className="flex-1 accent-[var(--accent)]"
+                  className="max-w-md flex-1 accent-[var(--text)]"
                 />
-                <span className="w-12 text-right text-sm tabular-nums">{Math.round(sensitivity * 100)}%</span>
+                <span className="w-12 text-right font-mono text-sm">{Math.round(sensitivity * 100)}%</span>
               </div>
-              <p className="text-xs text-muted">{sensitivityWords(sensitivity)}</p>
+              <p className="text-sm text-muted">{sensitivityWords(sensitivity)}</p>
               {editable ? (
                 <Button size="sm" onClick={() => update.mutate({ sensitivity })} disabled={update.isPending || sensitivity === s.sensitivity}>
                   {update.isPending ? "Saving…" : "Save sensitivity"}
@@ -127,12 +129,11 @@ export default function LearningPage() {
               )}
               {update.isError && <InlineError message={describeError(update.error)} />}
             </div>
-          </Card>
+          </Section>
 
           {editable && (
-            <Card>
-              <CardHeader title="Control" />
-              <div className="flex flex-wrap items-center gap-6 px-5 pb-5">
+            <Section title="Control">
+              <div className="flex flex-wrap items-center gap-6">
                 <label className="flex items-center gap-3 text-sm">
                   <Switch
                     checked={s.mode !== "disabled"}
@@ -143,10 +144,10 @@ export default function LearningPage() {
                   Anomaly detection {s.mode === "disabled" ? "off" : "on"}
                 </label>
                 <Button variant="secondary" size="sm" onClick={() => setConfirm("reset")}>
-                  <RotateCcw className="size-3.5" aria-hidden /> Reset baseline
+                  Reset baseline
                 </Button>
               </div>
-            </Card>
+            </Section>
           )}
         </>
       )}

@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ChevronDown, ChevronRight, Download, Loader2, Play, ScanSearch, ShieldCheck, XCircle } from "lucide-react";
+import { ChevronRight, Download, Play } from "lucide-react";
 import { qk, useApplyRule, useFindings, useScan, useScans, useStartScan } from "@/api/queries";
 import { scansApi } from "@/api/endpoints";
 import type { Finding, Scan, Severity } from "@/api/schemas";
 import { useWorkspace } from "@/app/WorkspaceContext";
 import { useAuth } from "@/auth/AuthContext";
-import { ActionBadge, actionMeaning, matchSummary } from "@/components/domain/ActionBadge";
+import { ActionTag, actionMeaning, matchSummary } from "@/components/domain/ActionBadge";
 import { EmptyState } from "@/components/domain/EmptyState";
-import { SeverityBadge, severityForScore } from "@/components/domain/SeverityBadge";
-import { WhyTooltip } from "@/components/domain/WhyTooltip";
+import { SegmentBar } from "@/components/domain/RiskGauge";
+import { SeverityMark, severityEdge, severityForScore } from "@/components/domain/SeverityBadge";
+import { Term } from "@/components/domain/Term";
 import { Button } from "@/components/ui/Button";
-import { Card, CardError, CardHeader } from "@/components/ui/Card";
+import { CardError } from "@/components/ui/Card";
 import { InlineError, Modal } from "@/components/ui/Dialog";
 import { Markdown } from "@/components/ui/Markdown";
+import { PageHeader, StatusDot } from "@/components/ui/Primitives";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Switch } from "@/components/ui/Switch";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -84,12 +86,8 @@ function NewScanWizard({ open, onOpenChange, onStarted }: { open: boolean; onOpe
       {step === 1 ? (
         <div className="space-y-4">
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Target API</span>
-            <select
-              value={chosen?.id ?? ""}
-              onChange={(e) => setTarget(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-surface-2 px-2 text-sm"
-            >
+            <span className="eyebrow mb-1 block">Target API</span>
+            <select value={chosen?.id ?? ""} onChange={(e) => setTarget(e.target.value)} className="h-8 w-full rounded-sm border border-border-strong bg-surface px-2 text-sm">
               {upstreams.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
@@ -98,12 +96,10 @@ function NewScanWizard({ open, onOpenChange, onStarted }: { open: boolean; onOpe
             </select>
             {chosen && <span className="mt-1 block font-mono text-xs text-muted">{chosen.url}</span>}
           </label>
-          <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-surface-2 p-3">
+          <div className="flex items-start justify-between gap-4 border-y border-border py-3">
             <div>
               <p className="text-sm font-medium">Safe mode</p>
-              <p className="text-xs leading-relaxed text-muted">
-                Read-only, low-volume probes. Nothing is written or deleted. This version of the scanner always runs in safe mode.
-              </p>
+              <p className="text-xs leading-relaxed text-muted">Read-only, low-volume probes. Nothing is written or deleted. This scanner version always runs in safe mode.</p>
             </div>
             <Switch checked onCheckedChange={() => undefined} disabled label="Safe mode (always on)" />
           </div>
@@ -111,11 +107,11 @@ function NewScanWizard({ open, onOpenChange, onStarted }: { open: boolean; onOpe
       ) : (
         <div className="space-y-3">
           <p className="text-sm">
-            The scanner will send test requests, including injection payloads, to{" "}
-            <span className="font-mono text-xs">{chosen?.url}</span>. It talks to the API directly, not through the gateway.
+            The scanner sends test requests, including injection payloads, to <span className="font-mono text-xs">{chosen?.url}</span>. It talks to the API directly, not
+            through the gateway.
           </p>
-          <label className="flex items-start gap-2 rounded-lg border border-border bg-surface-2 p-3 text-sm">
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-4 accent-[var(--accent)]" />
+          <label className="flex items-start gap-2 border-y border-border py-3 text-sm">
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-4 accent-[var(--text)]" />
             <span>I own this API, or have written permission to test it, and I agree to scan it now.</span>
           </label>
           {start.isError && <InlineError message={describeError(start.error)} />}
@@ -127,37 +123,34 @@ function NewScanWizard({ open, onOpenChange, onStarted }: { open: boolean; onOpe
 
 // ---- Scan list ---------------------------------------------------------------------
 
-function StatusIcon({ status }: { status: Scan["status"] }) {
-  if (status === "done") return <CheckCircle2 className="size-4 text-act-allow" aria-hidden />;
-  if (status === "failed") return <XCircle className="size-4 text-sev-critical" aria-hidden />;
-  return <Loader2 className="size-4 animate-spin text-accent" aria-hidden />;
+function ScanStatus({ status }: { status: Scan["status"] }) {
+  if (status === "done") return <StatusDot tone="ok">done</StatusDot>;
+  if (status === "failed") return <StatusDot tone="signal">failed</StatusDot>;
+  return <StatusDot tone="ink">{status}</StatusDot>;
 }
 
 function ScanList({ scans, selected, onSelect }: { scans: Scan[]; selected?: string; onSelect: (id: string) => void }) {
   return (
-    <ul className="space-y-1 px-2 pb-3" aria-label="Scans">
+    <ul aria-label="Scans" className="border-t border-border">
       {scans.map((s) => {
         const total = SEVERITIES.reduce((n, k) => n + s.counts[k], 0);
+        const active = s.id === selected;
         return (
-          <li key={s.id}>
+          <li key={s.id} className="border-b border-border">
             <button
               type="button"
               onClick={() => onSelect(s.id)}
-              aria-current={s.id === selected ? "true" : undefined}
-              className={cn(
-                "w-full rounded-lg px-3 py-2 text-left hover:bg-surface-2",
-                s.id === selected && "bg-accent-soft hover:bg-accent-soft",
-              )}
+              aria-current={active ? "true" : undefined}
+              className={cn("w-full py-2.5 pr-2 pl-3 text-left transition-colors ease-ui hover:bg-surface-2", active && "bg-surface-2 shadow-[inset_2px_0_0_var(--text)]")}
             >
-              <span className="flex items-center gap-2 text-sm">
-                <StatusIcon status={s.status} />
-                <span className="font-medium capitalize">{s.status}</span>
-                <span className="ml-auto text-[11px] text-muted">{formatRelative(s.started_at)}</span>
+              <span className="flex items-center gap-2">
+                <ScanStatus status={s.status} />
+                <span className="ml-auto font-mono text-[11px] text-muted">{formatRelative(s.started_at)}</span>
               </span>
-              <span className="mt-0.5 block font-mono text-[11px] text-muted">
-                {s.id}
-                {s.status === "done" && ` · ${total} findings`}
-                {s.api_risk_score !== undefined && ` · risk ${s.api_risk_score.toFixed(1)}`}
+              <span className="mt-1 flex items-baseline gap-3 font-mono text-[11px] text-muted">
+                <span>{s.id}</span>
+                {s.status === "done" && <span>{total} findings</span>}
+                {s.api_risk_score !== undefined && <span className="ml-auto text-[13px] text-fg">{s.api_risk_score.toFixed(1)}</span>}
               </span>
             </button>
           </li>
@@ -179,45 +172,30 @@ function FindingRow({ finding }: { finding: Finding }) {
   const appliedOpen = apply.isSuccess && apply.data.status === "open";
 
   return (
-    <li className="border-t border-border/60 first:border-t-0">
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-controls={panelId}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
-        >
-          {open ? <ChevronDown className="size-4 shrink-0 text-muted" aria-hidden /> : <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />}
-          <SeverityBadge severity={finding.severity} />
+    <li className="border-b border-border/70 last:border-b-0">
+      <div className="flex h-10 items-center gap-3 pr-1" style={severityEdge(finding.severity)}>
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={panelId} className="flex min-w-0 flex-1 items-center gap-3 pl-3 text-left text-sm">
+          <ChevronRight className={cn("size-3.5 shrink-0 text-muted transition-transform ease-ui", open && "rotate-90")} aria-hidden />
+          <span className="w-20 shrink-0">
+            <SeverityMark severity={finding.severity} />
+          </span>
           <span className="truncate">{finding.title}</span>
         </button>
-        <span className="inline-flex items-center gap-1 text-xs text-muted tabular-nums">
-          risk {finding.risk_score.toFixed(1)}
-          <WhyTooltip label={`Why is the risk ${finding.risk_score.toFixed(1)}?`}>
-            Risk {finding.risk_score.toFixed(1)} of 10 ({severityForScore(finding.risk_score)}) weighs how bad this weakness is ({finding.owasp_cat}) by how
-            exposed the endpoint is. Applying a fix or a mitigating rule lowers the API's overall score.
-          </WhyTooltip>
-        </span>
-        {finding.status === "mitigated" ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-act-allow/30 bg-act-allow/12 px-2 py-0.5 text-xs font-medium text-act-allow">
-            <ShieldCheck className="size-3" aria-hidden /> Mitigated
-          </span>
-        ) : (
-          <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted capitalize">{finding.status}</span>
-        )}
+        <Term
+          tip={`Risk ${finding.risk_score.toFixed(1)} of 10 (${severityForScore(finding.risk_score)}) weighs how bad this weakness is (${finding.owasp_cat}) by how exposed the endpoint is. A fix or a mitigating rule lowers the API's overall score.`}
+        >
+          <span className="font-mono text-[13px]">{finding.risk_score.toFixed(1)}</span>
+        </Term>
+        <span className={cn("w-24 text-right font-mono text-[11px] tracking-wider uppercase", finding.status === "mitigated" ? "text-ok" : "text-muted")}>{finding.status}</span>
       </div>
       {open && (
-        <div id={panelId} className="space-y-4 bg-surface-2/40 px-4 pt-1 pb-4 sm:pl-10">
-          <p className="text-xs text-muted">{finding.owasp_cat}</p>
+        <div id={panelId} className="space-y-4 border-t border-border/70 bg-bg px-4 pt-3 pb-4 sm:pl-12">
+          <p className="font-mono text-xs text-muted">{finding.owasp_cat}</p>
           <div>
-            <h4 className="mb-1 flex items-center gap-1 text-xs font-semibold text-muted">
-              Evidence
-              <WhyTooltip label="About this evidence">
-                Secrets, tokens, emails and IPs were masked before the evidence was stored. You see the shape of what happened, not the contents.
-              </WhyTooltip>
+            <h4 className="eyebrow mb-1 text-fg">
+              <Term tip="Secrets, tokens, emails and IPs were masked before the evidence was stored. You see the shape of what happened, not the contents.">Evidence</Term>
             </h4>
-            <dl className="grid gap-1 rounded-md border border-border bg-surface p-3 font-mono text-xs">
+            <dl className="grid gap-1 border-y border-border py-2 font-mono text-xs">
               <div className="flex gap-2">
                 <dt className="w-16 shrink-0 text-muted">request</dt>
                 <dd className="break-all">{finding.evidence.request}</dd>
@@ -230,30 +208,29 @@ function FindingRow({ finding }: { finding: Finding }) {
           </div>
           {finding.fix && (
             <div>
-              <h4 className="mb-1 text-xs font-semibold text-muted">How to fix it in your code</h4>
+              <h4 className="eyebrow mb-1 text-fg">How to fix it in your code</h4>
               <Markdown text={finding.fix} />
             </div>
           )}
           {rule ? (
-            <div className="rounded-lg border border-border bg-surface p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-xs font-semibold text-muted">Suggested gateway rule</h4>
-                <ActionBadge action={rule.action} />
-                <WhyTooltip label="What would this rule do?">
-                  Until the code is fixed, this rule {actionMeaning[rule.action]} for {matchSummary(rule.match).join(", ")}.
-                </WhyTooltip>
+            <div className="border-l-2 border-fg pl-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h4 className="eyebrow text-fg">Suggested gateway rule</h4>
+                <Term tip={`Until the code is fixed, this rule ${actionMeaning[rule.action]} for ${matchSummary(rule.match).join(", ")}.`}>
+                  <ActionTag action={rule.action} />
+                </Term>
               </div>
               <p className="mt-1 font-mono text-xs text-muted">{matchSummary(rule.match).join(" · ")}</p>
               {rule.throttle && (
-                <p className="mt-0.5 text-xs text-muted">
-                  Limit: {rule.throttle.limit} requests per {rule.throttle.per} s per caller
+                <p className="mt-0.5 font-mono text-xs text-muted">
+                  limit {rule.throttle.limit} requests per {rule.throttle.per} s per caller
                 </p>
               )}
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 {finding.status === "mitigated" ? (
                   <p className="text-sm">
                     Mitigated by rule{" "}
-                    <Link to={`/app/rules?highlight=${encodeURIComponent(rule.id)}`} className="font-mono text-xs text-accent hover:underline">
+                    <Link to={`/app/rules?highlight=${encodeURIComponent(rule.id)}`} className="link font-mono text-xs">
                       {rule.id}
                     </Link>
                   </p>
@@ -289,25 +266,26 @@ function Findings({ scanId }: { scanId: string }) {
       const key = `${f.method} ${f.endpoint}`;
       map.set(key, [...(map.get(key) ?? []), f]);
     }
-    return [...map.entries()]
-      .map(([endpoint, items]) => ({ endpoint, items, risk: Math.max(...items.map((f) => f.risk_score)) }))
-      .sort((a, b) => b.risk - a.risk);
+    return [...map.entries()].map(([endpoint, items]) => ({ endpoint, items, risk: Math.max(...items.map((f) => f.risk_score)) })).sort((a, b) => b.risk - a.risk);
   }, [findings.data]);
 
   if (findings.isError) return <CardError onRetry={() => findings.refetch()} />;
-  if (!findings.data) return <Skeleton className="mx-4 h-40" />;
-  if (groups.length === 0) return <p className="px-5 py-8 text-center text-sm text-muted">No findings. This scan found nothing to fix.</p>;
+  if (!findings.data) return <Skeleton className="h-40" />;
+  if (groups.length === 0) return <p className="py-6 font-mono text-sm text-muted">0 findings in this scan.</p>;
 
   return (
-    <div className="space-y-3 px-4 pb-4">
+    <div className="space-y-5">
       {groups.map((g) => (
-        <section key={g.endpoint} className="overflow-hidden rounded-lg border border-border" aria-label={`Findings for ${g.endpoint}`}>
-          <header className="flex items-center gap-2 bg-surface-2 px-4 py-2">
-            <h3 className="font-mono text-xs font-semibold">{g.endpoint}</h3>
-            <span className="text-xs text-muted">
+        <section key={g.endpoint} aria-label={`Findings for ${g.endpoint}`}>
+          <header className="flex items-baseline gap-3 border-b border-fg pb-1.5">
+            <h3 className="font-mono text-[13px] font-medium">{g.endpoint}</h3>
+            <span className="font-mono text-[11px] text-muted">
               {g.items.length} finding{g.items.length === 1 ? "" : "s"}
             </span>
-            <SeverityBadge severity={severityForScore(g.risk)} className="ml-auto" />
+            <span className="ml-auto flex items-baseline gap-2">
+              <span className="font-mono text-[13px]">{g.risk.toFixed(1)}</span>
+              <SeverityMark severity={severityForScore(g.risk)} />
+            </span>
           </header>
           <ul>
             {g.items.map((f) => (
@@ -338,7 +316,7 @@ function ScanDetail({ scanId }: { scanId: string }) {
 
   if (scan.isError) return <CardError onRetry={() => scan.refetch()} />;
   const s = scan.data;
-  if (!s) return <Skeleton className="m-5 h-60" />;
+  if (!s) return <Skeleton className="h-60" />;
 
   const exportReport = async (format: "json" | "html") => {
     setExportError(null);
@@ -350,71 +328,66 @@ function ScanDetail({ scanId }: { scanId: string }) {
   };
 
   return (
-    <>
-      <CardHeader
-        title={<span className="font-mono">{s.id}</span>}
-        action={
-          s.status === "done" && (
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" onClick={() => exportReport("json")}>
-                <Download className="size-3.5" aria-hidden /> JSON
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => exportReport("html")}>
-                <Download className="size-3.5" aria-hidden /> HTML report
-              </Button>
-            </div>
-          )
-        }
-      />
-      {exportError && (
-        <div className="px-5">
-          <InlineError message={exportError} />
-        </div>
-      )}
-      <div className="px-5 pb-4">
-        {s.status === "queued" || s.status === "running" ? (
-          <div className="space-y-2 py-6">
-            <p className="text-sm">{s.status === "queued" ? "Waiting to start…" : "Scanning in safe mode: read-only probes against each endpoint…"}</p>
-            <div
-              role="progressbar"
-              aria-label="Scan progress"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(s.progress * 100)}
-              className="h-2 overflow-hidden rounded-full bg-surface-2"
-            >
-              <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${Math.max(5, s.progress * 100)}%` }} />
-            </div>
-            <p className="text-xs text-muted">Started {formatRelative(s.started_at)}. This page updates by itself.</p>
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border pb-2">
+        <span className="eyebrow">Scan</span>
+        <span className="font-mono text-[13px]">{s.id}</span>
+        {s.finished_at && <span className="font-mono text-xs text-muted">finished {formatRelative(s.finished_at)}</span>}
+        {s.status === "done" && (
+          <span className="ml-auto flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => exportReport("json")}>
+              <Download className="size-3.5" aria-hidden /> JSON
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => exportReport("html")}>
+              <Download className="size-3.5" aria-hidden /> HTML report
+            </Button>
+          </span>
+        )}
+      </header>
+      {exportError && <InlineError message={exportError} />}
+
+      {s.status === "queued" || s.status === "running" ? (
+        <div className="space-y-2">
+          <p className="text-sm">{s.status === "queued" ? "Waiting to start." : "Scanning in safe mode: read-only probes against each endpoint."}</p>
+          <div role="progressbar" aria-label="Scan progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(s.progress * 100)} className="h-1.5 bg-surface-2">
+            <div className="h-full bg-fg transition-[width] duration-500" style={{ width: `${Math.max(5, s.progress * 100)}%` }} />
           </div>
-        ) : s.status === "failed" ? (
-          <InlineError message={`The scan failed: ${s.error ?? "unknown error"}`} />
-        ) : (
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            {s.api_risk_score !== undefined && (
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-semibold tabular-nums">{s.api_risk_score.toFixed(1)}</span>
-                <span className="text-xs text-muted">/ 10 API risk</span>
-                <SeverityBadge severity={severityForScore(s.api_risk_score)} />
-                <WhyTooltip label="How is the API risk computed?">
-                  The scanner scores each endpoint from its findings (severity and how exposed the endpoint is) and reports the API's overall risk.
-                  Mitigated findings lower the live score on the Overview.
-                </WhyTooltip>
+          <p className="font-mono text-xs text-muted">started {formatRelative(s.started_at)} · updates by itself</p>
+        </div>
+      ) : s.status === "failed" ? (
+        <InlineError message={`The scan failed: ${s.error ?? "unknown error"}`} />
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-[minmax(0,320px)_1fr]">
+          {s.api_risk_score !== undefined && (
+            <div className="space-y-3">
+              <p className="eyebrow">
+                <Term tip="The scanner scores each endpoint from its findings (severity and exposure) and reports the API's overall risk. Mitigated findings lower the live score on the Overview.">
+                  API risk
+                </Term>
+              </p>
+              <div className="flex items-baseline gap-3">
+                <span className="font-mono text-[56px] leading-none font-medium tracking-tight">{s.api_risk_score.toFixed(1)}</span>
+                <span className="font-mono text-sm text-muted">/ 10</span>
+                <SeverityMark severity={severityForScore(s.api_risk_score)} className="ml-auto" />
               </div>
-            )}
-            <ul className="flex flex-wrap gap-2" aria-label="Findings by severity">
-              {SEVERITIES.filter((k) => s.counts[k] > 0).map((k) => (
-                <li key={k} className="flex items-center gap-1 text-sm tabular-nums">
-                  <SeverityBadge severity={k} /> {s.counts[k]}
+              <SegmentBar value={s.api_risk_score} color={`var(--sev-${severityForScore(s.api_risk_score)})`} label={`API risk ${s.api_risk_score.toFixed(1)} of 10`} />
+            </div>
+          )}
+          <div>
+            <p className="eyebrow mb-2">Findings by severity</p>
+            <ul className="grid grid-cols-5 border-y border-border" aria-label="Findings by severity">
+              {SEVERITIES.map((k) => (
+                <li key={k} className="border-l border-border px-3 py-2 first:border-l-0 first:pl-0">
+                  <span className={cn("block font-mono text-2xl", s.counts[k] === 0 && "text-muted")}>{s.counts[k]}</span>
+                  <SeverityMark severity={k} />
                 </li>
               ))}
             </ul>
-            {s.finished_at && <span className="text-xs text-muted">Finished {formatRelative(s.finished_at)}</span>}
           </div>
-        )}
-      </div>
+        </div>
+      )}
       {s.status === "done" && <Findings scanId={s.id} />}
-    </>
+    </div>
   );
 }
 
@@ -429,46 +402,34 @@ export default function ScansPage() {
   const select = (id: string) => setParams({ scan: id }, { replace: true });
 
   const newScan = can("scans.run") ? (
-    <Button onClick={() => setWizard(true)}>
-      <ScanSearch className="size-4" aria-hidden /> New scan
-    </Button>
+    <Button onClick={() => setWizard(true)}>New scan</Button>
   ) : (
     <Tooltip content="Only admins and analysts can start scans.">
       <span tabIndex={0}>
-        <Button disabled>
-          <ScanSearch className="size-4" aria-hidden /> New scan
-        </Button>
+        <Button disabled>New scan</Button>
       </span>
     </Tooltip>
   );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Scans & reports</h1>
-          <p className="text-sm text-muted">Probe your API for OWASP API Top 10 weaknesses, then turn the fixes into gateway rules.</p>
-        </div>
-        {newScan}
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Scans & reports" description="Probe the API for OWASP API Top 10 weaknesses, then turn the fixes into gateway rules." actions={newScan} />
 
       {scans.isError ? (
-        <Card>
-          <CardError onRetry={() => scans.refetch()} />
-        </Card>
+        <CardError onRetry={() => scans.refetch()} />
       ) : scans.isLoading ? (
         <Skeleton className="h-80" />
       ) : items.length === 0 ? (
-        <Card>
-          <EmptyState icon={ScanSearch} title="No scans yet" body="Run your first scan to find weaknesses like SQL injection or a login without a rate limit." action={newScan} />
-        </Card>
+        <div className="border-y border-border">
+          <EmptyState title="0 scans" body="Run a scan to find weaknesses such as SQL injection or a login with no rate limit." action={newScan} />
+        </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-          <Card className="self-start">
-            <CardHeader title="History" />
+        <div className="grid gap-x-10 gap-y-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <section className="self-start">
+            <h2 className="eyebrow mb-2 text-fg">History</h2>
             <ScanList scans={items} selected={selected} onSelect={select} />
-          </Card>
-          <Card>{selected && <ScanDetail key={selected} scanId={selected} />}</Card>
+          </section>
+          <div className="min-w-0">{selected && <ScanDetail key={selected} scanId={selected} />}</div>
         </div>
       )}
 

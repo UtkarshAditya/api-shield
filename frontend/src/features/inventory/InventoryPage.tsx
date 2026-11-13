@@ -1,24 +1,23 @@
-import { Check, EyeOff, Map, Minus } from "lucide-react";
 import { useEndpointInventory } from "@/api/queries";
 import type { EndpointInventoryItem } from "@/api/schemas";
 import { useWorkspace } from "@/app/WorkspaceContext";
 import { EmptyState } from "@/components/domain/EmptyState";
-import { SeverityBadge, severityForScore } from "@/components/domain/SeverityBadge";
-import { WhyTooltip } from "@/components/domain/WhyTooltip";
-import { Card, CardError } from "@/components/ui/Card";
+import { SeverityMark, severityForScore } from "@/components/domain/SeverityBadge";
+import { Term } from "@/components/domain/Term";
+import { CardError } from "@/components/ui/Card";
+import { DataTable, PageHeader, Td, Th, THead, Tr } from "@/components/ui/Primitives";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/cn";
 import { formatNumber } from "@/lib/format";
 
-const sourceLabel: Record<EndpointInventoryItem["source"], string> = { spec: "Spec only", observed: "Observed only", both: "Spec + traffic" };
+const sourceLabel: Record<EndpointInventoryItem["source"], string> = { spec: "spec only", observed: "observed only", both: "spec + traffic" };
 
-function YesNo({ value, yes, no }: { value: boolean; yes: string; no: string }) {
-  return value ? (
-    <span className="inline-flex items-center gap-1 text-act-allow">
-      <Check className="size-3.5" aria-hidden /> {yes}
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 text-muted">
-      <Minus className="size-3.5" aria-hidden /> {no}
+/** Plain text with a small mark: filled = protected, hollow = not. */
+function Flag({ on, yes, no }: { on: boolean; yes: string; no: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[13px]">
+      <span aria-hidden className={cn("inline-block size-2 border", on ? "border-ok bg-ok" : "border-border-strong")} />
+      <span className={on ? "text-fg" : "text-muted"}>{on ? yes : no}</span>
     </span>
   );
 }
@@ -28,78 +27,79 @@ export default function InventoryPage() {
   const inv = useEndpointInventory(upstreamId);
   const items = inv.data?.items ?? [];
   const shadows = items.filter((i) => i.shadow).length;
+  const maxReq = Math.max(1, ...items.map((i) => i.requests_24h));
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">API map</h1>
-        <p className="text-sm text-muted">
-          Every endpoint from your OpenAPI spec and from traffic seen in the last 24 hours.
-          {shadows > 0 && ` ${shadows} shadow endpoint${shadows === 1 ? "" : "s"} found: called, but not documented.`}
-        </p>
-      </div>
-      <Card>
+    <div className="space-y-6">
+      <PageHeader
+        title="API map"
+        description={
+          <>
+            Every endpoint from the OpenAPI spec and from traffic in the last 24 hours.
+            {shadows > 0 && ` ${shadows} shadow endpoint${shadows === 1 ? "" : "s"}: called, but not documented.`}
+          </>
+        }
+      />
+      <div className="border-y border-border">
         {inv.isError ? (
           <CardError onRetry={() => inv.refetch()} />
         ) : inv.isLoading ? (
-          <Skeleton className="m-5 h-60" />
+          <Skeleton className="my-4 h-60" />
         ) : items.length === 0 ? (
-          <EmptyState icon={Map} title="No endpoints yet" body="Configure an OpenAPI spec or send traffic through the gateway." />
+          <EmptyState title="0 endpoints" body="Configure an OpenAPI spec or send traffic through the gateway." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <caption className="sr-only">Endpoint inventory</caption>
-              <thead>
-                <tr className="text-left text-[11px] text-muted uppercase">
-                  <th scope="col" className="px-4 py-2 font-medium">Endpoint</th>
-                  <th scope="col" className="px-4 py-2 font-medium">Source</th>
-                  <th scope="col" className="px-4 py-2 font-medium">Auth</th>
-                  <th scope="col" className="px-4 py-2 font-medium">Rate limit</th>
-                  <th scope="col" className="px-4 py-2 font-medium">
-                    <span className="inline-flex items-center gap-1">
-                      Risk
-                      <WhyTooltip label="Where does the risk come from?">The latest scan's score for this endpoint (0 to 10). Applied mitigating rules lower it.</WhyTooltip>
+          <DataTable caption="Endpoint inventory">
+            <THead>
+              <Th>Endpoint</Th>
+              <Th>Source</Th>
+              <Th>Auth</Th>
+              <Th>Rate limit</Th>
+              <Th>
+                <Term tip="The latest scan's score for this endpoint (0 to 10). Applied mitigating rules lower it.">Risk</Term>
+              </Th>
+              <Th align="right" className="w-56">Requests 24 h</Th>
+            </THead>
+            <tbody>
+              {items.map((e) => (
+                <Tr key={`${e.method} ${e.path}`}>
+                  <Td mono>
+                    <span className="mr-2 inline-block w-14 text-muted">{e.method}</span>
+                    {e.path}
+                    {e.shadow && (
+                      <Term tip="Seen in traffic but not in the OpenAPI spec. Undocumented endpoints are often forgotten and unprotected." className="ml-3">
+                        <span className="font-mono text-[11px] font-medium tracking-wider text-signal uppercase">Shadow</span>
+                      </Term>
+                    )}
+                  </Td>
+                  <Td className="font-mono text-xs text-muted">{sourceLabel[e.source]}</Td>
+                  <Td>
+                    <Flag on={e.auth_required} yes="required" no="public" />
+                  </Td>
+                  <Td>
+                    <Flag on={e.rate_limited} yes="limited" no="none" />
+                  </Td>
+                  <Td>
+                    {e.risk_score > 0 ? (
+                      <span className="inline-flex items-center gap-3">
+                        <span className="w-8 font-mono text-[13px]">{e.risk_score.toFixed(1)}</span>
+                        <SeverityMark severity={severityForScore(e.risk_score)} />
+                      </span>
+                    ) : (
+                      <span className="font-mono text-xs text-muted">not scored</span>
+                    )}
+                  </Td>
+                  <Td align="right">
+                    <span className="relative inline-flex w-full justify-end">
+                      <span aria-hidden className="absolute inset-y-0.5 right-0 bg-surface-2" style={{ width: `${(e.requests_24h / maxReq) * 100}%` }} />
+                      <span className="relative pr-1 font-mono text-[13px]">{formatNumber(e.requests_24h)}</span>
                     </span>
-                  </th>
-                  <th scope="col" className="px-4 py-2 text-right font-medium">Requests 24 h</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((e) => (
-                  <tr key={`${e.method} ${e.path}`} className="border-t border-border/60">
-                    <td className="px-4 py-2 font-mono text-xs">
-                      <span className="mr-1.5 text-muted">{e.method}</span>
-                      {e.path}
-                      {e.shadow && (
-                        <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-sev-high/30 bg-sev-high/12 px-2 py-0.5 font-sans text-[11px] font-medium text-sev-high">
-                          <EyeOff className="size-3" aria-hidden /> Shadow
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-muted">{sourceLabel[e.source]}</td>
-                    <td className="px-4 py-2 text-xs">
-                      <YesNo value={e.auth_required} yes="Required" no="Public" />
-                    </td>
-                    <td className="px-4 py-2 text-xs">
-                      <YesNo value={e.rate_limited} yes="Limited" no="None" />
-                    </td>
-                    <td className="px-4 py-2">
-                      {e.risk_score > 0 ? (
-                        <span className="inline-flex items-center gap-2 tabular-nums">
-                          {e.risk_score.toFixed(1)} <SeverityBadge severity={severityForScore(e.risk_score)} />
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted">not scored</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">{formatNumber(e.requests_24h)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </DataTable>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

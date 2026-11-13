@@ -1,82 +1,122 @@
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
-@import "@fontsource/jetbrains-mono/400.css";
-@import "@fontsource/jetbrains-mono/600.css";
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Semantic tokens. Light is the base; .dark overrides. All text/surface pairs target WCAG AA. */
+/*
+ * APIShield design tokens: "security instrument / operations ledger".
+ * Ink on paper, hairline rules, one signal accent (vermilion) for danger / blocked / critical /
+ * enforce, and verdigris only for an OK/protected state. Every color in the app routes through
+ * these variables; light is the base and .dark redefines them (designed, not inverted).
+ * Text pairs are checked for WCAG AA (4.5:1) on --bg and --surface; marks for 3:1.
+ */
 :root {
-  --bg: #f5f7fa;
-  --surface: #ffffff;
-  --surface-2: #eef2f6;
-  --border: #d5dde6;
-  --text: #0e1621;
-  --text-muted: #4f5d6c;
-  --accent: #0f766e;
-  --accent-fg: #ffffff;
-  --accent-soft: #ccfbf1;
-  --focus: #0d9488;
+  /* surfaces */
+  --bg: #f3f1ec; /* paper */
+  --surface: #fbfaf7;
+  --surface-2: #ece9e2; /* hover / inset wash */
+  --border: #dad6cc; /* hairline rule */
+  --border-strong: #b9b4a8;
+  --text: #16181b; /* ink */
+  --text-muted: #5f636a;
 
-  --sev-critical: #be123c;
-  --sev-high: #c2410c;
-  --sev-medium: #a16207;
-  --sev-low: #1d4ed8;
-  --sev-info: #475569;
+  /* "accent" is ink: primary buttons, active marks, links */
+  --accent: #16181b;
+  --accent-fg: #fbfaf7;
+  --accent-soft: #e6e2d9;
+  --focus: #16181b;
 
-  --act-allow: #15803d;
-  --act-log: #475569;
-  --act-block: #be123c;
-  --act-throttle: #b45309;
-  --act-challenge: #7c3aed;
+  /* the one signal color, and the quiet OK state */
+  --signal: #b93716; /* vermilion, AA as text on paper and on the hover wash */
+  --signal-mark: #d8431f; /* vermilion for fills, lines, bars */
+  --ok: #2e6b5e; /* verdigris: state only, never buttons */
 
-  --chart-allowed: #0d9488;
-  --chart-blocked: #e11d48;
-  --chart-grid: #e2e8f0;
+  /* severity: one ordered ramp, neutral -> amber -> vermilion */
+  --sev-critical: #b93716;
+  --sev-high: #9c5313;
+  --sev-medium: #7d6317;
+  --sev-low: #5f6872;
+  --sev-info: #62666d;
+
+  /* gateway actions */
+  --act-allow: #2e6b5e;
+  --act-log: #5f636a;
+  --act-block: #b93716;
+  --act-throttle: #9c5313;
+  --act-challenge: #3d434b;
+
+  /* charts */
+  --chart-allowed: #16181b;
+  --chart-blocked: #d8431f;
+  --chart-grid: #e2ded4;
+
+  /* motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 140ms;
+
+  /* layout */
+  --sidebar-w: 232px;
+  --sidebar-w-collapsed: 56px;
+  --topbar-h: 44px;
 }
 
 .dark {
-  --bg: #0a0e13;
-  --surface: #10161e;
-  --surface-2: #161e29;
-  --border: #243040;
-  --text: #e6edf3;
-  --text-muted: #94a3b4;
-  --accent: #2dd4bf;
-  --accent-fg: #042f2e;
-  --accent-soft: #0f2f2c;
-  --focus: #5eead4;
+  --bg: #0d1013;
+  --surface: #12161a;
+  --surface-2: #192026;
+  --border: #232a30;
+  --border-strong: #38414a;
+  --text: #e7e5df;
+  --text-muted: #969ba2;
 
-  --sev-critical: #fb7185;
-  --sev-high: #fb923c;
-  --sev-medium: #facc15;
-  --sev-low: #60a5fa;
-  --sev-info: #94a3b8;
+  --accent: #e7e5df;
+  --accent-fg: #0d1013;
+  --accent-soft: #1d252c;
+  --focus: #e7e5df;
 
-  --act-allow: #4ade80;
-  --act-log: #94a3b8;
-  --act-block: #fb7185;
-  --act-throttle: #fbbf24;
-  --act-challenge: #c4b5fd;
+  --signal: #f0623c;
+  --signal-mark: #f0623c;
+  --ok: #6db3a2;
 
-  --chart-allowed: #0fa596;
-  --chart-blocked: #f43f5e;
-  --chart-grid: #1e2936;
+  --sev-critical: #f0623c;
+  --sev-high: #e0954a;
+  --sev-medium: #c8ad5e;
+  --sev-low: #98a3ae;
+  --sev-info: #8a8f96;
+
+  --act-allow: #6db3a2;
+  --act-log: #969ba2;
+  --act-block: #f0623c;
+  --act-throttle: #e0954a;
+  --act-challenge: #c3c7cc;
+
+  --chart-allowed: #e7e5df;
+  --chart-blocked: #f0623c;
+  --chart-grid: #20272d;
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-fg: var(--text);
   --color-muted: var(--text-muted);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
+  --color-ink: var(--text);
+  --color-rule: var(--border);
+  --color-signal: var(--signal);
+  --color-signal-mark: var(--signal-mark);
+  --color-ok: var(--ok);
 
   --color-sev-critical: var(--sev-critical);
   --color-sev-high: var(--sev-high);
@@ -89,6 +129,31 @@
   --color-act-block: var(--act-block);
   --color-act-throttle: var(--act-throttle);
   --color-act-challenge: var(--act-challenge);
+
+  /* flat: small radii, no shadows (rounded-full stays for dots and switch thumbs) */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --shadow-sm: 0 0 #0000;
+  --shadow: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+  --shadow-xl: 0 0 #0000;
+  --shadow-2xl: 0 0 #0000;
+
+  /* type scale */
+  --text-title: 30px;
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.02em;
+  --text-figure: 40px;
+  --text-figure--line-height: 1;
+  --text-figure--letter-spacing: -0.03em;
+  --text-eyebrow: 11px;
+  --text-eyebrow--line-height: 1.2;
+  --text-eyebrow--letter-spacing: 0.08em;
 }
 
 html,
@@ -96,13 +161,62 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
+  font-feature-settings: "ss01";
   -webkit-font-smoothing: antialiased;
 }
 
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-  border-radius: 4px;
+/* numbers align everywhere */
+table,
+.font-mono,
+[class*="tabular-nums"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* In the base layer so component utilities can refine it. Programmatic focus targets
+   (headings that receive focus for screen readers, tabindex=-1) get no ring. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  [tabindex="-1"]:focus {
+    outline: none;
+  }
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* small mono caps label used for section headers, KPI labels and table heads */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  line-height: var(--text-eyebrow--line-height);
+  letter-spacing: var(--text-eyebrow--letter-spacing);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* links are ink, underlined with an offset */
+@utility link {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: text-decoration-color var(--dur) var(--ease);
+  &:hover {
+    text-decoration-color: var(--text);
+  }
+}
+
+@utility ease-ui {
+  transition-timing-function: var(--ease);
+  transition-duration: var(--dur);
 }
 
 @keyframes shimmer {

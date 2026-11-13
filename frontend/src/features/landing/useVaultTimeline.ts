@@ -24,7 +24,7 @@ export function useVaultTimeline(root: RefObject<HTMLElement>, enabled: boolean,
       gsap.set(".v-bolt", { x: -62 });
       gsap.set(".v-cap", { autoAlpha: 0, y: 28 });
       gsap.set(".v-cap-0", { autoAlpha: 1, y: 0 });
-      gsap.set(".v-hub-light", { attr: { fill: "#fb7185" } });
+      gsap.set(".v-hub-light", { attr: { fill: "#f0623c" } });
       gsap.set(".v-pick", { x: 320 });
       gsap.set(".v-crowbar", { x: 260 });
       gsap.set(".v-sparks", { scale: 0, transformOrigin: "50% 50%" });
@@ -95,7 +95,7 @@ export function useVaultTimeline(root: RefObject<HTMLElement>, enabled: boolean,
       tl.to(".v-rule1", { opacity: 1, y: 0, duration: 1.5, ease: "back.out(2)" }, 34);
       tl.to(".v-rule2", { opacity: 1, y: 0, duration: 1.5, ease: "back.out(2)" }, 35);
       tl.to(".v-bolt", { x: 0, duration: 3, stagger: 0.15, ease: "power3.inOut" }, 35.5);
-      tl.to(".v-hub-light", { attr: { fill: "#2dd4bf" }, duration: 1 }, 38);
+      tl.to(".v-hub-light", { attr: { fill: "#6db3a2" }, duration: 1 }, 38);
       tl.to(".v-door-rim", { opacity: 0.8, duration: 2 }, 38);
       tl.to([".v-weak1", ".v-weak2", ".v-label1", ".v-label2"], { opacity: 0, duration: 1.5 }, 39);
       tl.to([".v-fixed1", ".v-fixed2"], { opacity: 1, duration: 1.5 }, 39.5);
@@ -136,7 +136,7 @@ export function useVaultTimeline(root: RefObject<HTMLElement>, enabled: boolean,
       capSwap(3, 4, 63);
       tl.to(".v-visitor", { opacity: 1, x: 0, duration: 4, ease: "power3.out" }, 65);
       tl.to(".v-odd", { opacity: 1, duration: 1.5 }, 69.5);
-      tl.to(".v-hub-light", { attr: { fill: "#fb7185" }, duration: 0.6, repeat: 3, yoyo: true }, 70);
+      tl.to(".v-hub-light", { attr: { fill: "#f0623c" }, duration: 0.6, repeat: 3, yoyo: true }, 70);
       tl.to(".v-alert", { opacity: 1, y: 0, duration: 2.5, ease: "power3.out" }, 71);
       tl.to(".v-bar", { scaleX: 1, duration: 3, stagger: 0.5, ease: "power2.out" }, 72.5);
       tl.to([".v-alert", ".v-visitor"], { opacity: 0, duration: 2 }, 80);
@@ -145,7 +145,7 @@ export function useVaultTimeline(root: RefObject<HTMLElement>, enabled: boolean,
       capSwap(4, 5, 82);
       tl.to(".v-goodkey", { opacity: 1, y: 0, duration: 3, ease: "power3.out" }, 83);
       tl.to(".v-goodkey", { rotation: 90, svgOrigin: `${KEYHOLE.x} ${KEYHOLE.y}`, duration: 1.5 }, 86);
-      tl.to(".v-hub-light", { attr: { fill: "#5eead4" }, duration: 0.5 }, 87);
+      tl.to(".v-hub-light", { attr: { fill: "#9fd0c3" }, duration: 0.5 }, 87);
       tl.to(".v-wheel", { rotation: 300, svgOrigin: `${C} ${C}`, duration: 4, ease: "power2.inOut" }, 87.5);
       tl.to(".v-bolt", { x: -62, duration: 2.5, stagger: 0.08 }, 88.5);
       tl.to(".v-goodkey", { opacity: 0, duration: 1 }, 90);
